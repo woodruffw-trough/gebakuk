@@ -1,0 +1,22 @@
+[package]
+name = "presenter-web"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+presenter-core = { path = "../presenter-core" }
+wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
+js-sys.workspace = true
+web-sys = { workspace = true, features = [
+    "Blob", "BlobPropertyBag", "CanvasRenderingContext2d", "Document", "Element",
+    "Event", "EventTarget", "File", "FileList", "HtmlCanvasElement", "HtmlElement",
+    "HtmlImageElement", "HtmlInputElement", "HtmlSelectElement", "ImageData",
+    "KeyboardEvent", "Location", "MessageEvent", "Node", "Performance",
+    "Url", "UrlSearchParams", "Window", "CssStyleDeclaration", "console",
+] }

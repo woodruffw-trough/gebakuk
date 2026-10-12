@@ -1,10 +1,9 @@
-#import "../presenter-gif.typ": attach-gif, gif-frame
+#import "../presenter-gif.typ": gif
 
 #set page(width: 1280pt, height: 360pt, margin: 0pt)
 #set document(title: "Gebakuk — In-app guide", author: "Gebakuk contributors")
 #set text(font: "DejaVu Sans Mono", size: 17pt, fill: rgb("#173047"))
 #set par(leading: 0.6em, spacing: 0pt)
-#attach-gif("guide-orbit", read("../../fixtures/assets/orbit.gif", encoding: none))
 
 #let accent = rgb("#2363a3")
 #let muted = rgb("#53677a")
@@ -42,7 +41,7 @@
        [*Next:* static preview],
        [*Elapsed:* running timer],
      ))],
-    [#gif-frame("guide-orbit", image("../../fixtures/assets/orbit.png", width: 235pt))
+    [#gif(path("../../fixtures/assets/orbit.gif"), width: 235pt)
      #v(9pt)
      #text(size: 12pt, fill: muted)[Opaque demo GIF]])
   #v(16pt)
@@ -145,11 +144,11 @@
 ])
 
 #page("Add an animated GIF", 7, [
-  #text(size: 16pt)[Attach once; wrap an ordinary static poster.]
+  #text(size: 16pt)[One call embeds the GIF and its static first frame.]
   #v(14pt)
   #block(fill: rgb("#e4edf5"), inset: 12pt, radius: 6pt)[
     #text(size: 12pt)[#raw(
-      "#import \"presenter-gif.typ\": attach-gif, gif-frame\n#attach-gif(\"orbit\",\n  read(\"orbit.gif\", encoding: none))\n#gif-frame(\"orbit\",\n  image(\"orbit.png\", width: 320pt))",
+      "#import \"presenter-gif.typ\": gif\n#gif(path(\"orbit.gif\"), width: 6cm)",
       block: true)]
   ]
   #v(14pt)
@@ -157,10 +156,10 @@
     text(size: 13pt, fill: accent)[Full recipe: docs/gif-protocol.md in the repository])
 ], "Use the helper and opaque frames", [
   #lines((
-    [Copy presenter-gif.typ from the repository's typst directory beside your source.],
+    [Use Typst 0.15.1. Copy presenter-gif.typ beside your source.],
+    [path("orbit.gif") resolves beside your document. Use the same file on more slides; it attaches once.],
     [Keep the GIF opaque, rectangular, unrotated and at its original aspect ratio.],
-    [Reuse the same ID on other slides. Conventional PDF readers still show the poster.],
-    [Unsupported placements stay static. See docs/gif-protocol.md for the full protocol.],
+    [No separate PNG or ID is needed. Conventional readers show the first frame. See docs/gif-protocol.md for details.],
   ), size: 16pt)
 ])
 

@@ -125,7 +125,7 @@ once through `URLSearchParams`; callers should encode the entire PDF URL with
 `&`, `+`, and `#` characters are preserved. The download still uses the same CORS,
 credential, referrer, size, and timeout rules.
 
-Typst **0.15.1** regenerates the fifteen checked-in PDF fixtures. Attachment tests
+Typst **0.15.1** regenerates the sixteen checked-in PDF fixtures. Attachment tests
 verify that original GIF bytes survive export unchanged. The viewer's GIF
 convention is independent of Typst versions.
 

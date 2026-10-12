@@ -1,46 +1,44 @@
 # Authoring animations
 
-Examples and fixtures use Typst **0.15.1**. The helper was also verified with
-0.14.2 and works with ordinary Typst documents without a presentation package.
+Copy [presenter-gif.typ](presenter-gif.typ) beside your presentation source, then
+use:
 
 ```typst
-#import "presenter-gif.typ": attach-gif, gif-frame
-
-// Attach the original once, even if several slides use it.
-#attach-gif("orbit", read("assets/orbit.gif", encoding: none))
-
-// Supply a static poster with the GIF's original aspect ratio.
-#gif-frame("orbit", image("assets/orbit.png", width: 320pt))
+#import "presenter-gif.typ": gif
+#gif(path("orbit.gif"), width: 6cm)
 ```
 
-Each ID contains 1–128 ASCII letters, digits, periods, underscores or hyphens.
-`attach-gif` embeds the original bytes under the exact PDF name `orbit.gif`;
-`gif-frame` writes a link annotation for
-`https://presenter.invalid/gif/v1/orbit`. The viewer recognizes the marker as
-animation metadata. Conventional PDF readers continue to display the poster.
+The helper requires Typst **0.15.1**. Typst draws the GIF's first frame in the PDF;
+Gebakuk plays the original animation over it. The helper embeds the GIF bytes and
+assigns an attachment ID automatically. Ordinary PDF readers show the first
+frame.
 
-Typst exports the project-root-relative attachment path, including directories.
-There is no `name:` option in `pdf.attach` in Typst 0.15.1. The helper supplies
-`/orbit.gif` with caller-provided bytes so that the exported name stays exact,
-regardless of the helper's directory. Compile with an explicit project root:
+`path("orbit.gif")` resolves the file relative to the document that calls `gif`,
+even when the imported helper is in another directory. Set `width` to size the
+image while preserving its aspect ratio. Other named image arguments are passed
+to Typst's `image`; the helper fixes the format to GIF. Reuse the same path on
+any slide: the file is attached once, and its placements share the animation.
 
-```sh
-typst compile --root . typst/notes-right.typ demo.pdf
-```
+Use opaque GIF frames in an unrotated rectangle at the original aspect ratio.
+Transparent GIFs and unsupported placements retain the static first frame and
+produce a diagnostic. See the [GIF convention](../docs/gif-protocol.md) for
+opacity and placement requirements.
 
-Use opaque GIF frames and an opaque poster. Transparent GIFs retain the static
-poster and produce a diagnostic: overlaying transparent frames over their own
-poster would leave old pixels visible. Initially, placements must be rectangular,
-unrotated and preserve the original GIF aspect ratio. GIFs on rotated PDF pages
-also retain their static representation.
-
+[simple-gif.typ](simple-gif.typ) demonstrates automatic IDs, reuse, and paths
+relative to the calling document.
 [normal.typ](normal.typ) is a fixture deck with one slide per 640 × 360 pt page.
 [notes-right.typ](notes-right.typ) is a fixture deck with 1280 × 360 pt pages whose
-left half is the slide and right half is notes. Attach each ID once and reuse `gif-frame`
-wherever needed. Speaker notes remain readable in the original PDF.
+left half is the slide and right half is notes. Speaker notes remain readable
+in the original PDF.
 
 The [fixture instructions](../fixtures/README.md) describe rebuilding these
 examples and the regression PDFs.
+
+## Explicit IDs and static frames
+
+The `attach-gif` and `gif-frame` helpers remain available for existing documents
+and applications that supply their own IDs or static frames. Their usage is
+documented in the [GIF convention](../docs/gif-protocol.md#explicit-ids-and-static-frames).
 
 ## Public guide
 

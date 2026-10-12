@@ -10,6 +10,7 @@ GIF, then two independent GIFs with one attachment reused, then a static slide.
 | `normal.pdf` | Normal presentation, multiple and reused GIFs |
 | `notes-right.pdf` | Slide and speaker-note halves, multiple and reused GIFs |
 | `single-gif.pdf` | Known animation rectangle and original attachment bytes |
+| `simple-gif.pdf` | Three normal pages, two GIFs with automatic IDs, reuse, and mixed source paths |
 | `nonzero-origin.pdf` | Page boxes and content shifted to origin (40, 25) |
 | `cropbox.pdf` | CropBox differs from MediaBox, with nonzero origin |
 | `rotated.pdf` | Mixed unrotated and 90-degree pages |

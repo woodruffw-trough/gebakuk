@@ -1652,6 +1652,100 @@
         }
       ]
     },
+    "simple-gif.pdf": {
+      "sha256": "2f972da756462e812d993b64f691281d5e655e7dbb4d618cdea5e84042f66dc3",
+      "bytes": 28818,
+      "attachments": {
+        "gebakuk-gif-0.gif": {
+          "bytes": 22197,
+          "sha256": "ee883f59fcf3446dc48bc0379c73a65f949b054bd7e5461106cbbf48a24e7bdb"
+        },
+        "gebakuk-gif-1.gif": {
+          "bytes": 26735,
+          "sha256": "cf9a21e1da200977e07ea28e6277b0d52ecc168983305f302c7402f1b75e08e3"
+        }
+      },
+      "pages": [
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": [
+            {
+              "uri": "https://presenter.invalid/gif/v1/gebakuk-gif-0",
+              "rect": [
+                40.0,
+                120.0,
+                360.0,
+                300.0
+              ]
+            }
+          ]
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": [
+            {
+              "uri": "https://presenter.invalid/gif/v1/gebakuk-gif-0",
+              "rect": [
+                40.0,
+                165.0,
+                280.0,
+                300.0
+              ]
+            },
+            {
+              "uri": "https://presenter.invalid/gif/v1/gebakuk-gif-1",
+              "rect": [
+                340.0,
+                165.0,
+                580.0,
+                300.0
+              ]
+            }
+          ]
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": [
+            {
+              "uri": "https://presenter.invalid/gif/v1/gebakuk-gif-0",
+              "rect": [
+                40.0,
+                165.0,
+                280.0,
+                300.0
+              ]
+            },
+            {
+              "uri": "https://presenter.invalid/gif/v1/gebakuk-gif-1",
+              "rect": [
+                340.0,
+                165.0,
+                580.0,
+                300.0
+              ]
+            }
+          ]
+        }
+      ]
+    },
     "single-gif.pdf": {
       "sha256": "8d6cb264b79eb5cd6decd5259ee9f34e0949deede9579d0ce1b829631a92108a",
       "bytes": 9583,

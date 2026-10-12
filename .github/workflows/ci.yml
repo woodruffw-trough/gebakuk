@@ -18,6 +18,8 @@ jobs:
     name: Rust checks and static WASM build
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    outputs:
+      pages_artifact_name: ${{ steps.pages-artifact.outputs.name }}
     steps:
       - name: Check out source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -44,10 +46,11 @@ jobs:
             ~/.cargo/git/db
             ~/.cargo/git/checkouts
             target
-          key: cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.toml', 'crates/**/Cargo.toml', '.cargo/config.toml', '.github/workflows/ci.yml') }}-${{ hashFiles('Cargo.lock') }}-${{ hashFiles('crates/**/*.rs') }}
+          key: cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.toml', 'crates/**/Cargo.toml', '.cargo/config.toml') }}-${{ hashFiles('Cargo.lock') }}-${{ hashFiles('crates/**/*.rs') }}
           restore-keys: |
-            cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.toml', 'crates/**/Cargo.toml', '.cargo/config.toml', '.github/workflows/ci.yml') }}-${{ hashFiles('Cargo.lock') }}-
-            cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.toml', 'crates/**/Cargo.toml', '.cargo/config.toml', '.github/workflows/ci.yml') }}-
+            cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.toml', 'crates/**/Cargo.toml', '.cargo/config.toml') }}-${{ hashFiles('Cargo.lock') }}-
+            cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.toml', 'crates/**/Cargo.toml', '.cargo/config.toml') }}-
+            cargo-v1-${{ runner.os }}-${{ runner.arch }}-
       - name: Check formatting
         run: cargo fmt --all --check
       - name: Check native lint and compilation
@@ -68,10 +71,15 @@ jobs:
           fi
       - name: Build and validate SIMD128 distribution
         run: scripts/build.sh
+      - name: Select Pages artifact name
+        id: pages-artifact
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: echo "name=github-pages-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
       - name: Package Pages site
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         with:
+          name: ${{ steps.pages-artifact.outputs.name }}
           path: dist
           retention-days: 7
       # PRs restore default-branch caches; only successful main builds populate them.
@@ -119,3 +127,5 @@ jobs:
       - name: Publish static application
         id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+        with:
+          artifact_name: ${{ needs.check.outputs.pages_artifact_name }}

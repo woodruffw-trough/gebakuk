@@ -344,7 +344,7 @@ fn attach_events(state: &Rc<RefCell<App>>) -> Result<(), JsValue> {
             .target()
             .and_then(|target| target.dyn_into::<Element>().ok())
             && target
-                .closest("input,select,textarea,button,a[href],[contenteditable]")
+                .closest("input,select,textarea,button,a[href],[contenteditable],#status")
                 .ok()
                 .flatten()
                 .is_some()
@@ -788,6 +788,9 @@ impl App {
         if let Some(element) = self.dom.get_element_by_id("status") {
             element.set_text_content(Some(text));
             element.set_class_name(if error { "status error" } else { "status" });
+            if !self.audience_role {
+                let _ = element.set_attribute("tabindex", if text.is_empty() { "-1" } else { "0" });
+            }
         }
     }
 
@@ -1679,10 +1682,10 @@ const PRESENTER_HTML: &str = r#"
 <div class="presenter-shell">
   <header class="toolbar">
     <div class="brand"><span class="brand-mark" aria-hidden="true">▣</span><h1>Gebakuk</h1></div>
+    <div id="status" class="status" role="status" aria-live="polite" aria-label="Presentation status" tabindex="-1"></div>
     <label class="layout-control">Page layout<select id="layout-select"><option value="auto">Auto</option><option value="normal">Normal slides</option><option value="notes-right">Notes on right</option></select></label>
     <button id="audience-button" class="primary-button" type="button">Open audience ↗</button>
   </header>
-  <div id="status" class="status" role="status" aria-live="polite"></div>
   <div class="presenter-grid">
     <section id="current-panel" class="viewer-panel current-panel">
       <div class="panel-heading"><h2>Current slide</h2><div class="panel-actions"><span id="slide-count">— / —</span><button id="open-document-button" type="button" hidden>Change PDF</button></div></div>

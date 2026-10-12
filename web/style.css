@@ -14,11 +14,13 @@ h1, h2, p { margin-top: 0; }
 .startup { max-width: 600px; margin: 20vh auto; padding: 32px; text-align: center; }
 .brand-mark { display: inline-grid; place-items: center; width: 40px; height: 40px; background: var(--accent); color: #171b21; font-size: 32px; font-weight: 800; border-radius: 12px; }
 .presenter-shell { min-height: 100vh; max-width: 1800px; margin: auto; padding: 28px 32px 20px; }
-.toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid var(--line); padding-bottom: 22px; margin-bottom: 24px; }
+.toolbar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: "brand status layout audience"; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); padding-bottom: 22px; margin-bottom: 24px; }
 .toolbar h1 { margin: 0; font-size: 23px; font-weight: 650; letter-spacing: -.6px; }
-.brand { display: flex; align-items: center; gap: 12px; margin-right: auto; }
+.brand { grid-area: brand; display: flex; align-items: center; gap: 12px; }
 .brand .brand-mark { width: 36px; height: 36px; font-size: 27px; }
 .toolbar label { color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.toolbar .layout-control { grid-area: layout; min-width: 0; }
+.toolbar #audience-button { grid-area: audience; }
 #audience-button { color: #201b16; background: var(--accent); border-color: var(--accent); font-weight: 650; }
 #audience-button:hover { background: #ffc197; }
 .presenter-grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 22px; align-items: start; }
@@ -62,15 +64,16 @@ h1, h2, p { margin-top: 0; }
 .timer > span { color: var(--muted); font-size: 12px; }
 .timer-label, .hint, .keyboard-hint, .privacy-note { color: var(--muted); font-size: 12px; line-height: 1.7; }
 kbd { font-family: inherit; font-size: 10px; background: #242c36; color: #c2ccd7; border: 1px solid #3b4552; border-radius: 4px; padding: 2px 5px; }
-#status { color: var(--muted); font-size: 13px; line-height: 1.6; white-space: pre-line; margin-top: 18px; overflow-wrap: anywhere; }
-#status:empty { margin: 0; }
+#status { color: var(--muted); font-size: 13px; line-height: 1.6; white-space: pre-line; overflow-wrap: anywhere; }
+.toolbar #status { grid-area: status; min-width: 0; height: 3.2em; margin: 0; overflow: auto; overscroll-behavior: contain; }
+.toolbar #status:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 #status[data-level="error"], #status.error { color: #ffb3a5; }
 .audience-shell { width: 100vw; height: 100vh; position: relative; background: #000; display: flex; align-items: center; justify-content: center; }
 .audience-shell .slide-viewport { width: 100%; height: 100%; aspect-ratio: auto; background: #000; }
 .audience-shell #status { position: absolute; bottom: 18px; left: 22px; right: 22px; margin: 0; font-size: 13px; color: #b8c3cf; }
 .audience-shell #fullscreen-button { position: absolute; top: 18px; right: 18px; opacity: 0; transition: opacity .2s; z-index: 2; }
 .audience-shell:hover #fullscreen-button, .audience-shell #fullscreen-button:focus-visible { opacity: 1; }
-@media (max-width: 900px) { .presenter-shell { padding: 20px; } .toolbar { gap: 10px; } .toolbar .brand { width: 100%; margin-bottom: 10px; } .presenter-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 15px; } .viewer-panel:has(#current-slide) { grid-column: 1 / -1; grid-row: auto; } .viewer-panel:has(#next-slide) { grid-column: auto; } #current-slide { min-height: 200px; } }
+@media (max-width: 900px) { .presenter-shell { padding: 20px; } .toolbar { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "brand brand" "layout audience" "status status"; gap: 10px; } .presenter-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 15px; } .viewer-panel:has(#current-slide) { grid-column: 1 / -1; grid-row: auto; } .viewer-panel:has(#next-slide) { grid-column: auto; } #current-slide { min-height: 200px; } }
 @media (max-width: 540px) { .presenter-shell { padding: 14px; } .toolbar label { flex-wrap: wrap; } .presenter-grid { grid-template-columns: 1fr; } .viewer-panel:has(#current-slide) { grid-column: auto; } .controls, .navigation { gap: 8px; } button, select { padding: 9px 11px; font-size: 12px; } #elapsed { margin-left: 0; } .timer { margin-left: 0; } }
 @media (max-width: 900px) { #pdf-loader { padding: 18px; gap: 10px; } #file-open-button { min-height: 72px; padding: 8px 12px; font-size: 14px; gap: 5px; } #file-open-button .empty-icon { font-size: 26px; line-height: 1; } #pdf-url-input { padding: 9px 10px; font-size: 12px; } #url-load-button { padding: 9px 11px; font-size: 12px; } #loader-close-button { bottom: 12px; right: 14px; } }
 @media (max-width: 540px) { .panel-actions { gap: 6px; } #current-panel .panel-heading { padding-right: 12px; } #current-panel .panel-heading h2 { padding-left: 12px; padding-right: 8px; } #slide-count { font-size: 12px; padding: 0; } }

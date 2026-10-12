@@ -317,3 +317,21 @@ The eight-page PDF rebuilds identically, and its table and privacy notes fit.
 Chromium **154.0.8037.57** verified every page in both windows with no page errors
 or downloads. All **28 native Rust tests**, formatting, native/WASM Clippy, and
 the optimized SIMD128 build pass.
+
+## CI caches and header status
+
+The baseline [CI run](https://github.com/woodruffw-trough/gebakuk/actions/runs/38322026880)
+spent 241 seconds in its check job: 95 seconds installing the two WASM tools and
+132 seconds on Rust checks and the release build. CI now caches the exact tool
+binaries separately from Cargo dependencies and build outputs. Restores are
+available to PRs; successful main builds save caches. Version checks and all
+build validation remain enabled.
+
+Chromium **154.0.8037.57** measured **0 pixels** of movement in the toolbar,
+presenter grid, current panel, and slide viewport across empty, downloading,
+ready, error, cancellation, long-message, and PDF-diagnostic states at widths
+**320, 375, 900, and 1440 pixels**. Long messages wrap without horizontal overflow
+and scroll with Page Down while slide navigation stays put. The live region,
+empty/nonempty Tab order, GIF alignment, and audience synchronization passed.
+All **28 native Rust tests**, formatting, native/WASM Clippy, and the optimized
+SIMD128 build pass. Safari and Firefox were not exercised for this update.

@@ -163,18 +163,28 @@
   ), size: 16pt)
 ])
 
-#page("Know what stays on your device", 8, [
-  #lines((
-    [Local PDFs are read and rendered in your browser. They are not uploaded.],
-    [URL loading downloads directly from the PDF source.],
-    [Notes remain inside the PDF, including the copy sent to the audience window.],
-    [Use a browser with WebAssembly SIMD128 support.],
-  ), size: 17pt, gap: 15pt)
+#page("Desktop browser support", 8, [
+  #set text(size: 16pt)
+  #table(
+    columns: (240pt, 170pt, 170pt),
+    inset: (x: 12pt, y: 7pt),
+    stroke: 0.5pt + rgb("#c5d3df"),
+    fill: (x, y) => if y == 0 { rgb("#e4edf5") } else { none },
+    table.header([*Browser*], [*Minimum*], [*Year*]),
+    [Chrome], [105+], [2022],
+    [Edge], [105+], [2022],
+    [Firefox], [121+], [2023],
+    [Safari], [16.4+], [2023],
+  )
+  #v(12pt)
+  #text(size: 12pt, fill: muted)[Feature-based minimums. Use current releases.]
+  #v(6pt)
+  #text(size: 12pt, fill: muted)[Year = release year of the minimum version.]
 ], "Before presenting your own deck", [
   #lines((
-    [Presenter only means visually hidden from the audience view; notes are not secret or encrypted.],
+    [PDFs are processed locally and never uploaded. URL loading contacts the PDF source directly.],
+    [Both windows receive the complete PDF. Hiding notes from the audience view does not make them secret.],
     [Keep the presenter open. If it closes, the audience keeps the last slide and reports disconnection.],
-    [If the app cannot start, try an up-to-date browser with JavaScript and WebAssembly enabled.],
     [Use Change PDF to open your deck. Check the layout and audience display before presenting.],
   ), size: 16pt)
 ])

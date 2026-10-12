@@ -5,6 +5,14 @@ or notes to a server, request an account, or use persistent document storage.
 The initial application files are fetched from the static host. Audience windows
 receive PDF bytes directly from the presenter through same-origin `postMessage`.
 
+The Current Slide opener accepts a file from the native picker or a single-file
+drop. Dropped files are validated as PDFs without trusting their filename or
+MIME type; the same 64 MiB limit applies. Empty and text-only drops are ignored,
+and multiple files are rejected. Drops outside Current Slide do not load a
+document and are prevented from navigating the browser. Cancelling an open
+operation aborts its download and ignores late file reads, keeping the previous
+document and diagnostics.
+
 Loading a PDF URL sends a download request directly to its source server. The
 request omits credentials and the referrer, and cross-origin downloads require
 CORS permission from that server. Only HTTP and HTTPS URLs are supported;

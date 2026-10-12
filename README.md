@@ -6,12 +6,13 @@ synchronized slide window. GIFs attached using the documented convention play
 over their static PDF frames.
 
 [Open the application](https://woodruffw-trough.github.io/gebakuk/)
-· [Download a notes-right sample](https://woodruffw-trough.github.io/gebakuk/sample.pdf)
+· [Open a notes-right sample](https://woodruffw-trough.github.io/gebakuk/?source=sample.pdf)
 
 ## Present a PDF
 
-1. Open the application and choose a PDF from your computer, or enter its address
-   in **PDF URL** and choose **Load URL**.
+1. In **Current Slide**, click **Click or drop a PDF** to choose a local file,
+   drop one PDF into the panel, or enter a **PDF URL** and choose **Open** or
+   press Enter. **Open sample PDF** loads the included notes-right sample.
 2. Leave the layout on **Auto**, or choose **Normal** or **Notes right** manually.
    Each PDF page is one slide.
 3. Open the audience window using the presenter control. Allow the popup if
@@ -20,6 +21,11 @@ over their static PDF frames.
    Browsers require a user action before entering fullscreen.
 5. Navigate from the presenter with the buttons or keyboard. Reopen a closed
    audience window to resume at the current slide.
+
+To replace the document, drop a PDF onto **Current Slide** or choose **Change
+PDF** to reopen the file and URL controls. **Cancel** stops a pending load and
+returns to the current document. Double-click the displayed slide to toggle
+fullscreen.
 
 | Key | Action |
 | --- | --- |
@@ -58,7 +64,7 @@ it contains `&`, `+`, or `#`. For example, the URL
 ?source=https%3A%2F%2Fexample.org%2Fslides.pdf%3Fa%3D1%26b%3D2
 ```
 
-These links use the same download limits and CORS requirements as **Load URL**.
+These links use the same download limits and CORS requirements as **Open**.
 The static host receives query parameters with the page request, and the browser
 contacts the PDF source to download the document.
 

@@ -19,9 +19,9 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::{Clamped, JsCast};
 use wasm_bindgen_futures::{JsFuture, spawn_local};
 use web_sys::{
-    AbortController, Document, Element, Event, HtmlCanvasElement, HtmlElement, HtmlInputElement,
-    HtmlSelectElement, KeyboardEvent, MessageEvent, ReadableStreamDefaultReader, ReferrerPolicy,
-    Request, RequestCredentials, RequestInit, RequestMode, Response, Window,
+    AbortController, Document, DragEvent, Element, Event, File, HtmlCanvasElement, HtmlElement,
+    HtmlInputElement, HtmlSelectElement, KeyboardEvent, MessageEvent, ReadableStreamDefaultReader,
+    ReferrerPolicy, Request, RequestCredentials, RequestInit, RequestMode, Response, Window,
 };
 
 const PROTOCOL: &str = "rust-pdf-presenter/v1";
@@ -95,6 +95,7 @@ struct App {
     gif_listeners: Vec<GifListener>,
     failed_gifs: HashSet<String>,
     resize_generation: u32,
+    drag_depth: u32,
     connected: bool,
     callbacks: Vec<Closure<dyn FnMut(Event)>>,
 }
@@ -155,6 +156,7 @@ pub fn start() -> Result<(), JsValue> {
         gif_listeners: Vec::new(),
         failed_gifs: HashSet::new(),
         resize_generation: 0,
+        drag_depth: 0,
         connected: false,
         callbacks: Vec::new(),
     }));
@@ -194,6 +196,7 @@ fn app() -> Option<Rc<RefCell<App>>> {
 fn attach_events(state: &Rc<RefCell<App>>) -> Result<(), JsValue> {
     let mut state = state.borrow_mut();
     if !state.audience_role {
+        state.listen_element("file-input", "click", |event| event.stop_propagation())?;
         state.listen_element("file-input", "change", |event| {
             let Some(input) = event
                 .target()
@@ -205,35 +208,94 @@ fn attach_events(state: &Rc<RefCell<App>>) -> Result<(), JsValue> {
                 return;
             };
             input.set_value("");
-            let Some(state) = app() else { return };
-            let generation = {
-                let mut state = state.borrow_mut();
+            start_file_load(file);
+        })?;
+        state.listen_element("file-open-button", "click", |_| open_file_picker())?;
+        state.listen_element("pdf-loader", "click", |event| {
+            if event
+                .target()
+                .and_then(|target| target.dyn_into::<Element>().ok())
+                .is_some_and(|target| {
+                    target
+                        .closest("button,input,form,label,a[href]")
+                        .ok()
+                        .flatten()
+                        .is_some()
+                })
+            {
+                return;
+            }
+            open_file_picker();
+        })?;
+        state.listen_element("open-document-button", "click", |_| {
+            with_app(|state| state.set_loader_open(true));
+            focus_element("file-open-button");
+        })?;
+        state.listen_element("loader-close-button", "click", |_| {
+            with_app(|state| {
                 state.begin_load();
-                if file.size() > MAX_FILE_BYTES as f64 {
-                    state.status("This PDF exceeds the 64 MiB file limit.", true);
-                    return;
-                }
-                state.status("Opening PDF…", false);
-                state.load_generation
-            };
-            spawn_local(async move {
-                let result = JsFuture::from(file.array_buffer()).await;
-                let mut state = state.borrow_mut();
-                if state.load_generation != generation {
-                    return;
-                }
-                match result {
-                    Ok(buffer) => {
-                        let bytes = Uint8Array::new(&buffer).to_vec();
-                        state.load_document(bytes, None);
-                    }
-                    Err(_) => state.status("The browser could not read this file.", true),
-                }
+                state.set_loader_open(false);
+                state.document_status();
             });
+            focus_element("current-slide");
         })?;
         state.listen_element("pdf-url-form", "submit", |event| {
             event.prevent_default();
             start_url_load();
+        })?;
+        state.listen_element("current-panel", "dragenter", |event| {
+            if is_file_drag(&event) {
+                event.prevent_default();
+                with_app(|state| {
+                    state.drag_depth = state.drag_depth.saturating_add(1);
+                    if let Some(panel) = state.dom.get_element_by_id("current-panel") {
+                        let _ = panel.set_attribute("data-drag-over", "true");
+                    }
+                });
+            }
+        })?;
+        state.listen_element("current-panel", "dragleave", |_| {
+            with_app(|state| {
+                state.drag_depth = state.drag_depth.saturating_sub(1);
+                if state.drag_depth == 0 {
+                    state.clear_drag_hint();
+                }
+            });
+        })?;
+        state.listen_element("current-panel", "dragover", |event| {
+            if is_file_drag(&event) {
+                event.prevent_default();
+                if let Some(transfer) = event
+                    .dyn_ref::<DragEvent>()
+                    .and_then(DragEvent::data_transfer)
+                {
+                    transfer.set_drop_effect("copy");
+                }
+            }
+        })?;
+        state.listen_element("current-panel", "drop", |event| {
+            event.prevent_default();
+            event.stop_propagation();
+            with_app(App::clear_drag_hint);
+            let Some(files) = event
+                .dyn_ref::<DragEvent>()
+                .and_then(DragEvent::data_transfer)
+                .and_then(|transfer| transfer.files())
+            else {
+                return;
+            };
+            match files.length() {
+                0 => (),
+                1 => {
+                    if let Some(file) = files.get(0) {
+                        start_file_load(file);
+                    }
+                }
+                _ => with_app(|state| {
+                    state.begin_load();
+                    state.status("Drop one PDF at a time.", true);
+                }),
+            }
         })?;
         state.listen_element("layout-select", "change", |_| {
             with_app(|state| {
@@ -258,6 +320,17 @@ fn attach_events(state: &Rc<RefCell<App>>) -> Result<(), JsValue> {
             })
         })?;
     }
+    for kind in ["dragover", "drop"] {
+        state.listen_document(kind, |event| {
+            if is_file_drag(&event) {
+                event.prevent_default();
+                if event.type_() == "drop" {
+                    with_app(App::clear_drag_hint);
+                }
+            }
+        })?;
+    }
+    state.listen_document("dragend", |_| with_app(App::clear_drag_hint))?;
     state.listen_element("fullscreen-button", "click", |_| with_app(App::fullscreen))?;
     state.listen_element("current-slide", "dblclick", |_| with_app(App::fullscreen))?;
     state.listen_window("keydown", |event| {
@@ -335,6 +408,69 @@ fn with_app(action: impl FnOnce(&mut App)) {
     if let Some(state) = app() {
         action(&mut state.borrow_mut());
     }
+}
+
+fn is_file_drag(event: &Event) -> bool {
+    event
+        .dyn_ref::<DragEvent>()
+        .and_then(DragEvent::data_transfer)
+        .is_some_and(|transfer| {
+            transfer
+                .types()
+                .iter()
+                .any(|kind| kind.as_string().as_deref() == Some("Files"))
+        })
+}
+
+fn open_file_picker() {
+    let input = app().and_then(|state| {
+        state
+            .borrow()
+            .dom
+            .get_element_by_id("file-input")
+            .and_then(|element| element.dyn_into::<HtmlInputElement>().ok())
+    });
+    if let Some(input) = input {
+        input.click();
+    }
+}
+
+fn focus_element(id: &str) {
+    let element = app().and_then(|state| {
+        state
+            .borrow()
+            .dom
+            .get_element_by_id(id)
+            .and_then(|element| element.dyn_into::<HtmlElement>().ok())
+    });
+    if let Some(element) = element {
+        let _ = element.focus();
+    }
+}
+
+fn start_file_load(file: File) {
+    let Some(state) = app() else { return };
+    let generation = {
+        let mut state = state.borrow_mut();
+        state.begin_load();
+        if file.size() > MAX_FILE_BYTES as f64 {
+            state.status("This PDF exceeds the 64 MiB file limit.", true);
+            return;
+        }
+        state.status("Opening PDF…", false);
+        state.load_generation
+    };
+    spawn_local(async move {
+        let result = JsFuture::from(file.array_buffer()).await;
+        let mut state = state.borrow_mut();
+        if state.load_generation != generation {
+            return;
+        }
+        match result {
+            Ok(buffer) => state.load_document(Uint8Array::new(&buffer).to_vec(), None),
+            Err(_) => state.status("The browser could not read this file.", true),
+        }
+    });
 }
 
 fn start_url_load() {
@@ -541,6 +677,48 @@ fn schedule_resize() {
 }
 
 impl App {
+    fn clear_drag_hint(&mut self) {
+        self.drag_depth = 0;
+        if let Some(panel) = self.dom.get_element_by_id("current-panel") {
+            let _ = panel.remove_attribute("data-drag-over");
+        }
+    }
+
+    fn set_loader_open(&self, open: bool) {
+        if self.audience_role {
+            return;
+        }
+        for (id, hidden) in [
+            ("pdf-loader", !open),
+            ("open-document-button", open || self.presentation.is_none()),
+            ("loader-close-button", !open || self.presentation.is_none()),
+        ] {
+            if let Some(element) = self
+                .dom
+                .get_element_by_id(id)
+                .and_then(|element| element.dyn_into::<HtmlElement>().ok())
+            {
+                element.set_hidden(hidden);
+            }
+        }
+        if let Some(slide) = self.dom.get_element_by_id("current-slide") {
+            if open {
+                let _ = slide.set_attribute("inert", "");
+                let _ = slide.set_attribute("aria-hidden", "true");
+            } else {
+                let _ = slide.remove_attribute("inert");
+                let _ = slide.remove_attribute("aria-hidden");
+            }
+        }
+        if let Some(button) = self.dom.get_element_by_id("fullscreen-button") {
+            if open {
+                let _ = button.set_attribute("disabled", "");
+            } else {
+                let _ = button.remove_attribute("disabled");
+            }
+        }
+    }
+
     fn cancel_download(&mut self) {
         if let Some(controller) = self.download.take() {
             controller.abort();
@@ -613,6 +791,22 @@ impl App {
         }
     }
 
+    fn document_status(&self) {
+        let diagnostics = self
+            .presentation
+            .as_ref()
+            .map(|pdf| pdf.diagnostics().join(" · "))
+            .unwrap_or_default();
+        self.status(
+            if diagnostics.is_empty() {
+                "PDF ready."
+            } else {
+                &diagnostics
+            },
+            false,
+        );
+    }
+
     fn load_document(&mut self, bytes: Vec<u8>, remote_id: Option<u32>) {
         if bytes.len() > MAX_FILE_BYTES {
             self.status("This PDF exceeds the 64 MiB file limit.", true);
@@ -628,25 +822,14 @@ impl App {
                 self.presentation = Some(presentation);
                 if !self.audience_role {
                     self.resolve_layout();
+                    self.set_loader_open(false);
                 }
                 self.document_id = remote_id.unwrap_or_else(|| self.document_id.wrapping_add(1));
                 self.page = 0;
                 self.started_ms = js_sys::Date::now();
                 self.sent_document = None;
                 self.connected = true;
-                let diagnostics = self
-                    .presentation
-                    .as_ref()
-                    .map(|pdf| pdf.diagnostics().join(" · "))
-                    .unwrap_or_default();
-                self.status(
-                    if diagnostics.is_empty() {
-                        "PDF ready."
-                    } else {
-                        &diagnostics
-                    },
-                    false,
-                );
+                self.document_status();
                 self.update_controls();
                 if !self.audience_role {
                     self.transfer_document();
@@ -1503,18 +1686,28 @@ const PRESENTER_HTML: &str = r#"
 <div class="presenter-shell">
   <header class="toolbar">
     <div class="brand"><span class="brand-mark" aria-hidden="true">▣</span><h1>Gebakuk</h1></div>
-    <label class="file-button">Open PDF<input id="file-input" type="file" accept="application/pdf,.pdf"></label>
-    <form id="pdf-url-form"><label for="pdf-url-input">PDF URL</label><input id="pdf-url-input" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://…/slides.pdf" maxlength="8192" required><button id="url-load-button" type="submit">Load URL</button></form>
     <label class="layout-control">Page layout<select id="layout-select"><option value="auto">Auto</option><option value="normal">Normal slides</option><option value="notes-right">Notes on right</option></select></label>
     <button id="audience-button" class="primary-button" type="button">Open audience ↗</button>
   </header>
   <div id="status" class="status" role="status" aria-live="polite"></div>
   <div class="presenter-grid">
-    <section class="viewer-panel current-panel"><div class="panel-heading"><h2>Current slide</h2><span id="slide-count">— / —</span></div><div id="current-slide" class="slide-viewport" tabindex="0"><div class="empty-hint empty-state"><span class="empty-icon" aria-hidden="true">▧</span><p>Open a PDF</p><a href="./sample.pdf" download>Download the sample PDF</a></div></div></section>
+    <section id="current-panel" class="viewer-panel current-panel">
+      <div class="panel-heading"><h2>Current slide</h2><div class="panel-actions"><span id="slide-count">— / —</span><button id="open-document-button" type="button" hidden>Change PDF</button></div></div>
+      <div class="current-content">
+        <div id="current-slide" class="slide-viewport" tabindex="0" inert aria-hidden="true"></div>
+        <div id="pdf-loader" class="pdf-loader">
+          <input id="file-input" type="file" accept="application/pdf,.pdf" hidden>
+          <button id="file-open-button" class="file-open-button" type="button"><span class="empty-icon" aria-hidden="true">▧</span><span>Click or drop a PDF</span></button>
+          <form id="pdf-url-form"><label class="sr-only" for="pdf-url-input">PDF URL</label><input id="pdf-url-input" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="Paste a PDF URL" maxlength="8192" required><button id="url-load-button" type="submit">Open</button></form>
+          <a id="sample-link" href="?source=sample.pdf">Open sample PDF</a>
+          <button id="loader-close-button" type="button" hidden>Cancel</button>
+        </div>
+      </div>
+    </section>
     <section class="viewer-panel notes-panel"><div class="panel-heading"><h2>Speaker notes</h2><span>Presenter only</span></div><div id="notes-slide" class="slide-viewport"><p class="empty-hint">Double-width PDFs show notes here.</p></div></section>
     <section class="viewer-panel next-panel"><div class="panel-heading"><h2>Next slide</h2></div><div id="next-slide" class="slide-viewport"></div></section>
   </div>
-  <footer class="presentation-controls"><div class="navigation"><button id="previous-button" type="button" aria-label="Previous slide">← Previous</button><button id="next-button" type="button">Next →</button><span class="keyboard-hint">← → or Space</span></div><div class="timer"><span>Elapsed</span><output id="elapsed">00:00:00</output><button id="reset-timer-button" type="button" aria-label="Reset elapsed timer">Reset</button></div><button id="fullscreen-button" type="button">Fullscreen ⛶</button></footer>
+  <footer class="presentation-controls"><div class="navigation"><button id="previous-button" type="button" aria-label="Previous slide">← Previous</button><button id="next-button" type="button">Next →</button><span class="keyboard-hint">← → or Space</span></div><div class="timer"><span>Elapsed</span><output id="elapsed">00:00:00</output><button id="reset-timer-button" type="button" aria-label="Reset elapsed timer">Reset</button></div><button id="fullscreen-button" type="button" disabled>Fullscreen ⛶</button></footer>
 </div>"#;
 
 const AUDIENCE_HTML: &str = r#"

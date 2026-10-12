@@ -18,7 +18,7 @@ web-sys = { workspace = true, features = [
     "RequestMode", "RequestCredentials", "ReferrerPolicy", "Response",
     "ReadableStream", "ReadableStreamDefaultReader",
     "Blob", "BlobPropertyBag", "CanvasRenderingContext2d", "Document", "Element",
-    "Event", "EventTarget", "File", "FileList", "HtmlCanvasElement", "HtmlElement",
+    "Event", "EventTarget", "DragEvent", "DataTransfer", "File", "FileList", "HtmlCanvasElement", "HtmlElement",
     "HtmlImageElement", "HtmlInputElement", "HtmlSelectElement", "ImageData",
     "KeyboardEvent", "Location", "MessageEvent", "Node", "Performance",
     "Url", "UrlSearchParams", "Window", "CssStyleDeclaration", "console",

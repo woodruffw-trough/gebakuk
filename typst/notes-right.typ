@@ -6,7 +6,7 @@
 #attach-gif("pulse", read("../fixtures/assets/pulse.gif", encoding: none))
 
 #grid(columns: (640pt, 640pt), gutter: 0pt,
-  slide("Keep your notes beside your slides", "Select Notes-right layout in the presenter.", [
+  slide("Keep your notes beside your slides", "Auto detects this notes-right layout.", [
     #gif-frame("orbit", image("../fixtures/assets/orbit.png", width: 320pt))
     #v(8pt)
     #text(size: 12pt)[The audience sees only this left half.]

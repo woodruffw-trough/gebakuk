@@ -67,6 +67,13 @@ a 64 MiB cap; a 60-second timeout bounds the download. Cross-origin sources must
 provide suitable CORS headers. The browser also enforces mixed-content rules.
 There is no backend proxy or PDF upload.
 
+Presenter startup accepts `source` in the application query (`?source=`), fills
+the PDF URL field, and starts the normal URL-loading path. Values are parsed
+once through `URLSearchParams`; callers should encode the entire PDF URL with
+`encodeURIComponent` or construct the parameter with `URLSearchParams` so nested
+`&`, `+`, and `#` characters are preserved. The download still uses the same CORS,
+credential, referrer, size, and timeout rules.
+
 Typst **0.15.1** is used to regenerate the fifteen checked-in PDF fixtures. Two
 regeneration passes produced identical fixture bytes, and attachment tests
 verify that original GIF bytes survive export unchanged. The previous 0.14.2
@@ -80,6 +87,10 @@ WASM module with an audience URL role. The presenter owns the PDF, layout, and
 slide state. The audience announces readiness and receives PDF bytes once per
 document load; later navigation messages send state rather than the full PDF.
 Both windows render locally.
+
+Audience windows never fetch a startup `source`, including when opened directly
+with `role=audience`. Generated audience URLs remove the query `source`; the
+audience receives document bytes through the window protocol instead.
 
 The protocol uses `ready`, `document`, `sync`, `navigate`, `reset`, `command`,
 `disconnect`, and `error` messages. Readiness includes a window-instance ID so a

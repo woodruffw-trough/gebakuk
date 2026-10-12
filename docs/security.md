@@ -11,6 +11,13 @@ CORS permission from that server. Only HTTP and HTTPS URLs are supported;
 relative URLs resolve against the application address. HTTPS browsers may block
 HTTP sources as mixed content. There is no backend proxy or document upload.
 
+Application links containing `?source=` start that download automatically.
+Query parameters are sent to the static host with the page request. The browser
+contacts the PDF source server and requires the same CORS permission as a
+manually entered URL. Linking to a PDF does not bypass a source server that
+blocks cross-origin requests. Audience windows do not fetch these sources, and
+generated audience URLs omit query `source`.
+
 Notes are hidden by cropping the audience display. The audience still receives
 the complete original PDF, including notes; this is a presentation aid, not a
 confidentiality or encryption boundary.

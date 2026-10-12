@@ -47,6 +47,9 @@ PDFs are processed in your browser and are never uploaded. Both windows receive
 the complete PDF; hiding notes in the audience interface does not make them
 confidential. Standard PDF readers still show the original static slides.
 
+The application requires a browser with WebAssembly SIMD128 support. The WASM
+build uses SIMD for rendering and image resizing; there is no scalar fallback.
+
 ## Build and serve locally
 
 Install [Rust with rustup](https://rustup.rs/). The checked-in toolchain file pins
@@ -54,6 +57,7 @@ Rust **1.99.0**, rustfmt, Clippy, and the `wasm32-unknown-unknown` target.
 
 ```sh
 cargo install --locked wasm-bindgen-cli --version 0.2.129
+cargo install --locked wasm-tools --version 1.245.1 --no-default-features --features validate
 scripts/build.sh
 python3 -m http.server 8080 --directory dist
 ```

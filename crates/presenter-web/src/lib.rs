@@ -2,6 +2,11 @@
 
 //! Browser interface for the local PDF presentation viewer.
 
+#[cfg(all(target_arch = "wasm32", not(target_feature = "simd128")))]
+compile_error!(
+    "The browser build requires simd128. Build from the workspace root; custom RUSTFLAGS must include -C target-feature=+simd128."
+);
+
 mod protocol;
 
 use std::cell::{Cell, RefCell};

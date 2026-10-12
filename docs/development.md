@@ -46,10 +46,16 @@ layout changes, and resizing cancel obsolete work. An unchanged synchronization
 message updates elapsed time and connection state without redrawing the slide or
 restarting GIFs. Resize and fullscreen redraws are debounced by 120 ms.
 
-Release builds optimize for execution speed with `opt-level = 3`. No additional
-WASM CPU features are required. PDF parsing and cold rasterization still run on
-the browser's main thread; complex pages and background preparation can briefly
-block input. There is no worker architecture in this release.
+Release builds use `opt-level = 3`, fat LTO, a single codegen unit, and aborting
+panics. The WASM target enables `simd128` through `.cargo/config.toml`; a compile
+guard rejects builds that disable it, including environment overrides. This
+activates the WASM SIMD implementations in VelloCPU rendering through
+`fearless_simd` and in PicScale image resizing. Browsers must support WebAssembly
+SIMD128; no scalar fallback is built.
+
+PDF parsing and cold rasterization still run on the browser's main thread;
+complex pages and background preparation can briefly block input. There is no
+worker architecture in this release.
 
 ## PDF loading
 
@@ -88,11 +94,18 @@ governed by browser permissions and user gestures.
 
 ## Static packaging
 
-Run `scripts/build.sh` after installing the exact `wasm-bindgen-cli` version in
-the README. It rejects a mismatched CLI, performs a release WASM build with the
-lockfile, invokes `wasm-bindgen --target web`, and copies the web assets into
-`dist/`. The downloadable sample is copied from `fixtures/notes-right.pdf`.
-Generated assets and Cargo's `target/` are not source files.
+Run `scripts/build.sh` after installing the exact `wasm-bindgen-cli` and
+`wasm-tools` versions in the README. It rejects mismatched tools, performs a
+release WASM build with the lockfile, invokes `wasm-bindgen --target web`, and
+copies the web assets into `dist/`. Release builds omit debug information;
+wasm-bindgen removes the name and producers sections.
+
+The build validates the final WASM artifact with `wasm-tools` **1.245.1**. It also
+checks that validation with SIMD disabled fails specifically on a SIMD
+instruction, ensuring that the shipped module uses SIMD. CI installs the same
+pinned validator. The downloadable sample is copied from
+`fixtures/notes-right.pdf`. Generated assets and Cargo's `target/` are not source
+files.
 
 The GitHub workflow performs formatting, native Clippy and tests, browser-target
 Clippy, and static packaging. Only the deployment job receives Pages write and

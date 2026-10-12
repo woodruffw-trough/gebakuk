@@ -1,0 +1,1720 @@
+{
+  "typst_version": "0.14.2",
+  "fixtures": {
+    "cropbox.pdf": {
+      "sha256": "8f73466aeeb7977781c28518a5dca638ee3bc600acd1a40291f830b8eeeef1ec",
+      "bytes": 22217,
+      "attachments": {},
+      "pages": [
+        {
+          "crop_box": [
+            40.0,
+            25.0,
+            600.0,
+            335.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            40.0,
+            25.0,
+            600.0,
+            335.0
+          ],
+          "rotation": 0,
+          "markers": []
+        }
+      ]
+    },
+    "duplicate-identifiers.pdf": {
+      "sha256": "9fd2fc4c908479d4fa393140e4cef58d4c49a7f1aa8bdafcc852ae35ab602e78",
+      "bytes": 9909,
+      "attachments": {
+        "orbit.gif": {
+          "bytes": 22197,
+          "sha256": "ee883f59fcf3446dc48bc0379c73a65f949b054bd7e5461106cbbf48a24e7bdb"
+        }
+      },
+      "pages": [
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": [
+            {
+              "uri": "https://presenter.invalid/gif/v1/orbit",
+              "rect": [
+                40.0,
+                120.0,
+                360.0,
+                300.0
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "inconsistent-pages.pdf": {
+      "sha256": "3ffb790ec5305047114951546998469ac61318eacb2c24031ef935e87e7bc534",
+      "bytes": 22188,
+      "attachments": {},
+      "pages": [
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            600.0,
+            300.0
+          ],
+          "rotation": 0,
+          "markers": []
+        }
+      ]
+    },
+    "large.pdf": {
+      "sha256": "0c2a7cdda994059ddc9f8f4417994d1eec13db42ec3dfbce4adbe3f7f22d52f3",
+      "bytes": 166917,
+      "attachments": {},
+      "pages": [
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        }
+      ]
+    },
+    "malformed-marker.pdf": {
+      "sha256": "2b776c739133db723b2410a795cc9ac9a6bd3704524902729531ea6a747842e4",
+      "bytes": 21424,
+      "attachments": {},
+      "pages": [
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": [
+            {
+              "uri": "https://presenter.invalid/gif/v1/bad%2Fid",
+              "rect": [
+                30.0,
+                134.0,
+                190.0,
+                224.0
+              ]
+            },
+            {
+              "uri": "https://presenter.invalid/gif/v1/",
+              "rect": [
+                30.0,
+                22.399994,
+                190.0,
+                112.399994
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "missing-attachment.pdf": {
+      "sha256": "788660ad8b460654fc01209e0fccc5d3ed56b4c7631a5059b533690545fb0801",
+      "bytes": 20064,
+      "attachments": {},
+      "pages": [
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": [
+            {
+              "uri": "https://presenter.invalid/gif/v1/absent",
+              "rect": [
+                30.0,
+                44.0,
+                350.0,
+                224.0
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "nested-name-tree.pdf": {
+      "sha256": "ff7fc24564f9fb2da99abf3c9db051731754a05ad3f8998548d33db4ba723c63",
+      "bytes": 9946,
+      "attachments": {
+        "orbit.gif": {
+          "bytes": 22197,
+          "sha256": "ee883f59fcf3446dc48bc0379c73a65f949b054bd7e5461106cbbf48a24e7bdb"
+        }
+      },
+      "pages": [
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": [
+            {
+              "uri": "https://presenter.invalid/gif/v1/orbit",
+              "rect": [
+                40.0,
+                120.0,
+                360.0,
+                300.0
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "nonzero-origin.pdf": {
+      "sha256": "f1a9b7ed0b01fb08b8dd0ec411915fdbd3a062c2799690f722cd30b5f3f9ff0e",
+      "bytes": 24641,
+      "attachments": {},
+      "pages": [
+        {
+          "crop_box": [
+            40.0,
+            25.0,
+            680.0,
+            385.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            40.0,
+            25.0,
+            680.0,
+            385.0
+          ],
+          "rotation": 0,
+          "markers": []
+        }
+      ]
+    },
+    "normal.pdf": {
+      "sha256": "8bf443e315ca00176613afad43a2c044ab278fb1a8794440e2e2da3020d94c51",
+      "bytes": 51326,
+      "attachments": {
+        "orbit.gif": {
+          "bytes": 22197,
+          "sha256": "ee883f59fcf3446dc48bc0379c73a65f949b054bd7e5461106cbbf48a24e7bdb"
+        },
+        "pulse.gif": {
+          "bytes": 26735,
+          "sha256": "cf9a21e1da200977e07ea28e6277b0d52ecc168983305f302c7402f1b75e08e3"
+        }
+      },
+      "pages": [
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": [
+            {
+              "uri": "https://presenter.invalid/gif/v1/orbit",
+              "rect": [
+                30.0,
+                44.0,
+                350.0,
+                224.0
+              ]
+            }
+          ]
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": [
+            {
+              "uri": "https://presenter.invalid/gif/v1/orbit",
+              "rect": [
+                30.0,
+                89.0,
+                270.0,
+                224.0
+              ]
+            },
+            {
+              "uri": "https://presenter.invalid/gif/v1/pulse",
+              "rect": [
+                300.0,
+                89.0,
+                540.0,
+                224.0
+              ]
+            }
+          ]
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        }
+      ]
+    },
+    "notes-right.pdf": {
+      "sha256": "331c57510e92bd480e74f157077cba06f59f1cb44808c9ced9e45c04e38aa458",
+      "bytes": 57110,
+      "attachments": {
+        "orbit.gif": {
+          "bytes": 22197,
+          "sha256": "ee883f59fcf3446dc48bc0379c73a65f949b054bd7e5461106cbbf48a24e7bdb"
+        },
+        "pulse.gif": {
+          "bytes": 26735,
+          "sha256": "cf9a21e1da200977e07ea28e6277b0d52ecc168983305f302c7402f1b75e08e3"
+        }
+      },
+      "pages": [
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            1280.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": [
+            {
+              "uri": "https://presenter.invalid/gif/v1/orbit",
+              "rect": [
+                30.0,
+                44.0,
+                350.0,
+                224.0
+              ]
+            }
+          ]
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            1280.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": [
+            {
+              "uri": "https://presenter.invalid/gif/v1/orbit",
+              "rect": [
+                30.0,
+                89.0,
+                270.0,
+                224.0
+              ]
+            },
+            {
+              "uri": "https://presenter.invalid/gif/v1/pulse",
+              "rect": [
+                300.0,
+                89.0,
+                540.0,
+                224.0
+              ]
+            }
+          ]
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            1280.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        }
+      ]
+    },
+    "plain.pdf": {
+      "sha256": "bf3326a67efbdb3e5d66dfc4f14b31632ba1656c6012d0af8cceaf2108bd722d",
+      "bytes": 22635,
+      "attachments": {},
+      "pages": [
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        }
+      ]
+    },
+    "rotated-gif.pdf": {
+      "sha256": "80419c75357f63b2ff3c7fbfae833d82ec290ad3548855602ca35c48201a5ead",
+      "bytes": 9898,
+      "attachments": {
+        "orbit.gif": {
+          "bytes": 22197,
+          "sha256": "ee883f59fcf3446dc48bc0379c73a65f949b054bd7e5461106cbbf48a24e7bdb"
+        }
+      },
+      "pages": [
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 90,
+          "markers": [
+            {
+              "uri": "https://presenter.invalid/gif/v1/orbit",
+              "rect": [
+                40.0,
+                120.0,
+                360.0,
+                300.0
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "rotated.pdf": {
+      "sha256": "9f8d5a4db96ed09af8917d1e98e517be4eb7c3ad64baf8ada482b61b5a59db5f",
+      "bytes": 22174,
+      "attachments": {},
+      "pages": [
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": []
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 90,
+          "markers": []
+        }
+      ]
+    },
+    "single-gif.pdf": {
+      "sha256": "cb0450c13ded5969656086a70f7b5f993a873cefbe232f4c703a956e0e554421",
+      "bytes": 10096,
+      "attachments": {
+        "orbit.gif": {
+          "bytes": 22197,
+          "sha256": "ee883f59fcf3446dc48bc0379c73a65f949b054bd7e5461106cbbf48a24e7bdb"
+        }
+      },
+      "pages": [
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": [
+            {
+              "uri": "https://presenter.invalid/gif/v1/orbit",
+              "rect": [
+                40.0,
+                120.0,
+                360.0,
+                300.0
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "transparent.pdf": {
+      "sha256": "9e56c1f88106f5af2faf5d4121a9960dc757a025d36c24658450e9b7342ddf74",
+      "bytes": 23231,
+      "attachments": {
+        "transparent.gif": {
+          "bytes": 11226,
+          "sha256": "5bd241c550d8b32b017837fa2eaf04f328a99f9dfed33d77c33b0869af822b4e"
+        }
+      },
+      "pages": [
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": [
+            {
+              "uri": "https://presenter.invalid/gif/v1/transparent",
+              "rect": [
+                30.0,
+                44.0,
+                350.0,
+                224.0
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

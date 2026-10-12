@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="A private, local PDF presenter with speaker notes and animated GIFs.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self'; object-src 'none'; base-uri 'none'">
+  <title>Gebakuk · PDF Presenter</title>
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main id="app" aria-label="PDF presenter">
+    <div class="startup"><span class="brand-mark" aria-hidden="true">g</span><h1>Gebakuk</h1><p>Starting the PDF presenter…</p></div>
+  </main>
+  <noscript>This presenter requires WebAssembly and JavaScript enabled in your browser.</noscript>
+  <script type="module" src="./bootstrap.js"></script>
+</body>
+</html>

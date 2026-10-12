@@ -1,0 +1,9 @@
+:root { color-scheme: dark; font-family: system-ui, sans-serif; }
+body { margin: 0; background: #111419; color: #f3f4f5; }
+main { max-width: 1280px; margin: 2rem auto; padding: 0 1rem; }
+h1 { font-size: 1.8rem; }
+h2 { font-size: 1rem; }
+p { color: #c7cdd4; line-height: 1.5; }
+canvas { display: block; max-width: 100%; height: auto; background: white; }
+.regions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+@media (max-width: 700px) { .regions { grid-template-columns: 1fr; } }

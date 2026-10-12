@@ -2,8 +2,10 @@
 
 //! Browser interface for the local PDF presentation viewer.
 
+mod protocol;
+
 use std::cell::RefCell;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::rc::Rc;
 
 use js_sys::{Array, ArrayBuffer, Object, Reflect, Uint8Array};
@@ -39,6 +41,12 @@ struct CacheEntry {
     raster: Raster,
 }
 
+struct GifListener {
+    image: Element,
+    attachment_id: String,
+    callback: Closure<dyn FnMut(Event)>,
+}
+
 struct App {
     window: Window,
     dom: Document,
@@ -58,6 +66,8 @@ struct App {
     started_ms: f64,
     cache: VecDeque<CacheEntry>,
     gif_urls: HashMap<String, String>,
+    gif_listeners: Vec<GifListener>,
+    failed_gifs: HashSet<String>,
     resize_generation: u32,
     connected: bool,
     callbacks: Vec<Closure<dyn FnMut(Event)>>,
@@ -111,6 +121,8 @@ pub fn start() -> Result<(), JsValue> {
         started_ms: js_sys::Date::now(),
         cache: VecDeque::new(),
         gif_urls: HashMap::new(),
+        gif_listeners: Vec::new(),
+        failed_gifs: HashSet::new(),
         resize_generation: 0,
         connected: false,
         callbacks: Vec::new(),
@@ -154,11 +166,11 @@ fn attach_events(state: &Rc<RefCell<App>>) -> Result<(), JsValue> {
             let Some(state) = app() else { return };
             let generation = {
                 let mut state = state.borrow_mut();
+                state.load_generation = state.load_generation.wrapping_add(1);
                 if file.size() > MAX_FILE_BYTES as f64 {
                     state.status("This PDF exceeds the 64 MiB file limit.", true);
                     return;
                 }
-                state.load_generation = state.load_generation.wrapping_add(1);
                 state.status("Opening PDF…", false);
                 state.load_generation
             };
@@ -185,11 +197,10 @@ fn attach_events(state: &Rc<RefCell<App>>) -> Result<(), JsValue> {
                     .and_then(|element| element.dyn_into::<HtmlSelectElement>().ok())
                     .map(|select| select.value())
                     .unwrap_or_default();
-                state.layout = if value == "notes-right" {
-                    Layout::NotesRight
-                } else {
-                    Layout::Normal
+                let Some(layout) = protocol::layout(&value) else {
+                    return;
                 };
+                state.layout = layout;
                 state.cache.clear();
                 state.render();
                 state.send_sync("sync");
@@ -361,6 +372,7 @@ impl App {
         match Presentation::load(bytes.clone()) {
             Ok(presentation) => {
                 self.clear_gifs();
+                self.failed_gifs.clear();
                 self.cache.clear();
                 self.pdf = bytes;
                 self.presentation = Some(presentation);
@@ -406,12 +418,8 @@ impl App {
         let Some(pdf) = self.presentation.as_ref() else {
             return;
         };
-        let next = match action {
-            "next" => (self.page + 1).min(pdf.page_count().saturating_sub(1)),
-            "previous" => self.page.saturating_sub(1),
-            "first" => 0,
-            "last" => pdf.page_count().saturating_sub(1),
-            _ => return,
+        let Some(next) = protocol::navigation_target(self.page, pdf.page_count(), action) else {
+            return;
         };
         if next == self.page {
             return;
@@ -558,6 +566,9 @@ impl App {
         surface.append_child(&canvas).map_err(js_error)?;
         if animated {
             for overlay in pdf.animations(page, self.layout, view) {
+                if self.failed_gifs.contains(&overlay.attachment_id) {
+                    continue;
+                }
                 let Some(gif) = pdf.attachment(&overlay.attachment_id) else {
                     continue;
                 };
@@ -579,6 +590,20 @@ impl App {
                 };
                 let image = self.dom.create_element("img").map_err(js_error)?;
                 image.set_class_name("gif-overlay");
+                let attachment_id = overlay.attachment_id.clone();
+                let error_url = url.clone();
+                let error_id = attachment_id.clone();
+                let callback = Closure::wrap(Box::new(move |_event: Event| {
+                    with_app(|state| state.gif_failed(&error_id, &error_url));
+                }) as Box<dyn FnMut(Event)>);
+                image
+                    .add_event_listener_with_callback("error", callback.as_ref().unchecked_ref())
+                    .map_err(js_error)?;
+                self.gif_listeners.push(GifListener {
+                    image: image.clone(),
+                    attachment_id,
+                    callback,
+                });
                 image.set_attribute("src", &url).map_err(js_error)?;
                 image
                     .set_attribute("alt", "Animated slide illustration")
@@ -615,8 +640,44 @@ impl App {
     }
 
     fn clear_gifs(&mut self) {
+        // Detach before dropping callbacks, including callbacks that have fired.
+        for listener in self.gif_listeners.drain(..) {
+            let _ = listener.image.remove_event_listener_with_callback(
+                "error",
+                listener.callback.as_ref().unchecked_ref(),
+            );
+            listener.image.remove();
+        }
         for (_, url) in self.gif_urls.drain() {
             let _ = web_sys::Url::revoke_object_url(&url);
+        }
+    }
+
+    fn gif_failed(&mut self, attachment_id: &str, url: &str) {
+        // Ignore a queued error from an earlier render. Keep callback storage
+        // until the next redraw so this function cannot drop its own closure.
+        if self
+            .gif_urls
+            .get(attachment_id)
+            .is_none_or(|active| active != url)
+        {
+            return;
+        }
+        self.failed_gifs.insert(attachment_id.to_owned());
+        for listener in &self.gif_listeners {
+            if listener.attachment_id == attachment_id {
+                listener.image.remove();
+            }
+        }
+        if let Some(url) = self.gif_urls.remove(attachment_id) {
+            let _ = web_sys::Url::revoke_object_url(&url);
+        }
+        let error = "An animation could not be decoded. Its static PDF image is shown instead.";
+        self.status(error, true);
+        if self.audience_role {
+            let message = self.message("error");
+            set(&message, "message", &JsValue::from_str(error));
+            self.send_opener(&message);
         }
     }
 
@@ -881,8 +942,7 @@ impl App {
                     self.transfer_document();
                 }
                 "command" => {
-                    if integer(&data, "document", u32::MAX as f64)
-                        == Some(u64::from(self.document_id))
+                    if integer(&data, "document", u32::MAX) == Some(self.document_id)
                         && let Some(action) = string(&data, "action")
                     {
                         self.navigate(&action);
@@ -905,7 +965,7 @@ impl App {
         }
         match kind.as_str() {
             "document" => {
-                let Some(id) = integer(&data, "document", u32::MAX as f64) else {
+                let Some(id) = integer(&data, "document", u32::MAX) else {
                     return;
                 };
                 let Ok(buffer) = Reflect::get(&data, &JsValue::from_str("bytes")) else {
@@ -918,17 +978,17 @@ impl App {
                     self.status("Incoming PDF exceeds the file limit.", true);
                     return;
                 }
-                self.load_document(Uint8Array::new(&buffer).to_vec(), Some(id as u32));
+                self.load_document(Uint8Array::new(&buffer).to_vec(), Some(id));
                 self.apply_sync(&data);
             }
             "sync" | "navigate" => {
-                if integer(&data, "document", u32::MAX as f64) == Some(u64::from(self.document_id))
-                {
+                if integer(&data, "document", u32::MAX) == Some(self.document_id) {
                     self.apply_sync(&data);
                 }
             }
             "reset" => {
                 self.clear_gifs();
+                self.failed_gifs.clear();
                 self.cache.clear();
                 self.presentation = None;
                 self.pdf.clear();
@@ -949,15 +1009,16 @@ impl App {
         let Some(pdf) = self.presentation.as_ref() else {
             return;
         };
-        let Some(page) = integer(data, "page", pdf.page_count().saturating_sub(1) as f64) else {
+        let Some(page) =
+            number(data, "page").and_then(|value| protocol::page_index(value, pdf.page_count()))
+        else {
             return;
         };
-        self.page = page as usize;
-        self.layout = match string(data, "layout").as_deref() {
-            Some("normal") => Layout::Normal,
-            Some("notes-right") => Layout::NotesRight,
-            _ => return,
+        let Some(layout) = string(data, "layout").and_then(|value| protocol::layout(&value)) else {
+            return;
         };
+        self.page = page;
+        self.layout = layout;
         if let Some(elapsed) = number(data, "elapsed")
             .filter(|value| *value >= 0.0 && *value <= 365.0 * 86400.0 * 1000.0)
         {
@@ -986,10 +1047,8 @@ fn number(object: &JsValue, name: &str) -> Option<f64> {
         .filter(|number| number.is_finite())
 }
 
-fn integer(object: &JsValue, name: &str, maximum: f64) -> Option<u64> {
-    number(object, name)
-        .filter(|value| *value >= 0.0 && *value <= maximum && value.fract() == 0.0)
-        .map(|value| value as u64)
+fn integer(object: &JsValue, name: &str, maximum: u32) -> Option<u32> {
+    number(object, name).and_then(|value| protocol::bounded_integer(value, maximum))
 }
 
 fn js_error(error: JsValue) -> String {

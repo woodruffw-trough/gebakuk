@@ -327,6 +327,16 @@ binaries separately from Cargo dependencies and build outputs. Restores are
 available to PRs; successful main builds save caches. Version checks and all
 build validation remain enabled.
 
+A repeat of the same source restored both caches and completed its check job in
+**43 seconds**, compared with the **241-second** baseline (82% faster). Tool
+restore took 1 second; Cargo restore took 15 seconds for about 598 MiB. CLI
+version checks took 1 and 0 seconds, with no CLI compilation. Native Clippy,
+tests, WASM Clippy, and release build/validation took 2, 3, 1, and 3 seconds.
+Only the workspace crates rebuilt; dependencies were reused. See
+[the measured workflow](https://github.com/woodruffw-trough/gebakuk/actions/runs/38323454366/attempts/2)
+for the check logs. Pages artifacts have a unique producer-attempt name so
+repeating jobs does not select an older artifact.
+
 Chromium **154.0.8037.57** measured **0 pixels** of movement in the toolbar,
 presenter grid, current panel, and slide viewport across empty, downloading,
 ready, error, cancellation, long-message, and PDF-diagnostic states at widths

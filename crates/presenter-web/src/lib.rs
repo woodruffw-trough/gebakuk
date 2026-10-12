@@ -797,14 +797,7 @@ impl App {
             .as_ref()
             .map(|pdf| pdf.diagnostics().join(" · "))
             .unwrap_or_default();
-        self.status(
-            if diagnostics.is_empty() {
-                "PDF ready."
-            } else {
-                &diagnostics
-            },
-            false,
-        );
+        self.status(&diagnostics, false);
     }
 
     fn load_document(&mut self, bytes: Vec<u8>, remote_id: Option<u32>) {

@@ -19,6 +19,59 @@ fn close(a: f64, b: f64) {
 }
 
 #[test]
+fn fixture_layout_detection() {
+    assert_eq!(
+        load("notes-right.pdf").detected_layout(),
+        Layout::NotesRight
+    );
+    for name in [
+        "plain.pdf",
+        "single-gif.pdf",
+        "nonzero-origin.pdf",
+        "cropbox.pdf",
+        "rotated.pdf",
+        "inconsistent-pages.pdf",
+    ] {
+        assert_eq!(load(name).detected_layout(), Layout::Normal, "{name}");
+    }
+}
+
+#[test]
+fn layout_detection_uses_inherited_cropbox_after_rotation() {
+    for (crop, rotation, expected) in [
+        ([40, 25, 360, 145], 0, Layout::NotesRight),
+        ([40, 25, 360, 145], 180, Layout::NotesRight),
+        ([40, 25, 360, 145], 90, Layout::Normal),
+        ([40, 25, 160, 345], 90, Layout::NotesRight),
+        ([40, 25, 160, 345], 270, Layout::NotesRight),
+        ([40, 25, 240, 125], 0, Layout::Normal),
+    ] {
+        let mut doc = Document::load_mem(&color_pdf(rotation)).unwrap();
+        let page_id = doc.page_iter().next().unwrap();
+        let parent = doc
+            .get_dictionary(page_id)
+            .unwrap()
+            .get(b"Parent")
+            .unwrap()
+            .as_reference()
+            .unwrap();
+        let pages = doc.get_dictionary_mut(parent).unwrap();
+        pages.set(
+            "MediaBox",
+            vec![0.into(), 0.into(), 1000.into(), 1000.into()],
+        );
+        pages.set("CropBox", crop.map(Object::from).to_vec());
+        let mut bytes = Vec::new();
+        doc.save_to(&mut bytes).unwrap();
+        assert_eq!(
+            Presentation::load(bytes).unwrap().detected_layout(),
+            expected,
+            "CropBox {crop:?}, rotation {rotation}"
+        );
+    }
+}
+
+#[test]
 fn typst_attachment_is_recovered_exactly_and_rectangle_is_aligned() {
     for name in ["single-gif.pdf", "nested-name-tree.pdf"] {
         let doc = load(name);

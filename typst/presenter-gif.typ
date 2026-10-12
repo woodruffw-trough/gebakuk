@@ -10,7 +10,7 @@
 
 #let attach-gif(id, data) = {
   valid-id(id)
-  // Typst 0.14.2 exports the project-root-relative path as the attachment
+  // Typst exports the project-root-relative path as the attachment
   // name. An absolute virtual path fixes the name even from a subdirectory.
   pdf.attach("/" + id + ".gif", data, mime-type: "image/gif",
     description: "Presenter animation: " + id)

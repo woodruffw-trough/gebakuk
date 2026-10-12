@@ -97,6 +97,15 @@ impl Presentation {
     pub fn page_count(&self) -> usize {
         self.pages.len()
     }
+    /// Guesses a notes-on-right layout when every visible page is at least 2.5:1.
+    ///
+    /// This includes doubled 4:3 and 16:9 slides, while ordinary widescreen
+    /// slides retain their full page. Uses the effective CropBox after rotation.
+    /// Aspect ratio cannot prove that a document contains notes; callers should
+    /// allow a manual layout override, especially for unusually wide slides.
+    pub fn detected_layout(&self) -> Layout {
+        geometry::detected_layout(&self.pages)
+    }
     pub fn diagnostics(&self) -> &[String] {
         &self.diagnostics
     }

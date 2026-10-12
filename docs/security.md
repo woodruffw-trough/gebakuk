@@ -1,9 +1,15 @@
 # Privacy, input limits, and known limitations
 
-Gebakuk reads the selected PDF locally. It does not send PDFs, extracted media,
+Gebakuk processes PDFs in the browser. It does not send PDFs, extracted media,
 or notes to a server, request an account, or use persistent document storage.
 The initial application files are fetched from the static host. Audience windows
 receive PDF bytes directly from the presenter through same-origin `postMessage`.
+
+Loading a PDF URL sends a download request directly to its source server. The
+request omits credentials and the referrer, and cross-origin downloads require
+CORS permission from that server. Only HTTP and HTTPS URLs are supported;
+relative URLs resolve against the application address. HTTPS browsers may block
+HTTP sources as mixed content. There is no backend proxy or document upload.
 
 Notes are hidden by cropping the audience display. The audience still receives
 the complete original PDF, including notes; this is a presentation aid, not a
@@ -19,6 +25,7 @@ is validated before it changes the interface.
 | Resource | Limit |
 | --- | --- |
 | Original PDF | 64 MiB |
+| URL download | 64 MiB streamed; 60-second timeout |
 | Physical pages | 2,000 |
 | PDF objects | 200,000 |
 | Non-image lossless stream | 32 MiB decoded |
@@ -52,8 +59,13 @@ memory sandbox. Use trusted presentations when predictable responsiveness matter
 
 ## Current limitations
 
-- Choose the layout manually. Only normal and equal-half notes-right pages are
-  supported; other speaker-note arrangements require another PDF export.
+- Auto selects equal-half notes-right pages when every visible, rotated page is
+  at least 2.5:1. Aspect ratio cannot confirm that a PDF contains speaker notes;
+  unusual page shapes or mixed decks may require a manual selection. Only normal
+  and equal-half notes-right pages are supported; other note arrangements require
+  another PDF export.
+- Cross-origin PDF URLs require CORS permission. Sources requiring cookies or
+  other browser credentials cannot be loaded through the URL control.
 - Animation requires opaque GIFs and rectangular placements with matching aspect
   ratios. The first frame must cover the complete canvas; a frame following a
   clear/restore disposal operation must also cover the canvas. GIFs that expose

@@ -1,9 +1,9 @@
 {
-  "typst_version": "0.14.2",
+  "typst_version": "0.15.1",
   "fixtures": {
     "cropbox.pdf": {
-      "sha256": "8f73466aeeb7977781c28518a5dca638ee3bc600acd1a40291f830b8eeeef1ec",
-      "bytes": 22217,
+      "sha256": "5436b1e98c6363b4a4f9fcb01fb7d525f08c0b6f590e6ba64da9f52b0e714710",
+      "bytes": 21055,
       "attachments": {},
       "pages": [
         {
@@ -29,8 +29,8 @@
       ]
     },
     "duplicate-identifiers.pdf": {
-      "sha256": "9fd2fc4c908479d4fa393140e4cef58d4c49a7f1aa8bdafcc852ae35ab602e78",
-      "bytes": 9909,
+      "sha256": "4fb46754a18e55494d7794e69b4f3beb225a4309a853dc9b5465f8e97cdac2e7",
+      "bytes": 9945,
       "attachments": {
         "orbit.gif": {
           "bytes": 22197,
@@ -61,8 +61,8 @@
       ]
     },
     "inconsistent-pages.pdf": {
-      "sha256": "3ffb790ec5305047114951546998469ac61318eacb2c24031ef935e87e7bc534",
-      "bytes": 22188,
+      "sha256": "b3ef98b3a264814520bee60c72b7f2a6af219e265206a289035d12a7cdcedfba",
+      "bytes": 21026,
       "attachments": {},
       "pages": [
         {
@@ -88,8 +88,8 @@
       ]
     },
     "large.pdf": {
-      "sha256": "0c2a7cdda994059ddc9f8f4417994d1eec13db42ec3dfbce4adbe3f7f22d52f3",
-      "bytes": 166917,
+      "sha256": "3ed76f173e8441d7098ad58b4f8063d60c4a87d39be4520434bcfa0dcfb423b6",
+      "bytes": 152076,
       "attachments": {},
       "pages": [
         {
@@ -1295,8 +1295,8 @@
       ]
     },
     "malformed-marker.pdf": {
-      "sha256": "2b776c739133db723b2410a795cc9ac9a6bd3704524902729531ea6a747842e4",
-      "bytes": 21424,
+      "sha256": "8771e6c9347ff04be45434ab70c3006c18ba6a3725105086f0abbb21eb8d4691",
+      "bytes": 19233,
       "attachments": {},
       "pages": [
         {
@@ -1331,8 +1331,8 @@
       ]
     },
     "missing-attachment.pdf": {
-      "sha256": "788660ad8b460654fc01209e0fccc5d3ed56b4c7631a5059b533690545fb0801",
-      "bytes": 20064,
+      "sha256": "a49777b36a68230e5becec3da48a36b4848826b46ff8de8be75fe570239eb7bd",
+      "bytes": 18041,
       "attachments": {},
       "pages": [
         {
@@ -1358,8 +1358,8 @@
       ]
     },
     "nested-name-tree.pdf": {
-      "sha256": "ff7fc24564f9fb2da99abf3c9db051731754a05ad3f8998548d33db4ba723c63",
-      "bytes": 9946,
+      "sha256": "633dd531f493befaeaefd5e3ef96aa4fa0f56a96063ea0891923daba35e4eed6",
+      "bytes": 9982,
       "attachments": {
         "orbit.gif": {
           "bytes": 22197,
@@ -1390,8 +1390,8 @@
       ]
     },
     "nonzero-origin.pdf": {
-      "sha256": "f1a9b7ed0b01fb08b8dd0ec411915fdbd3a062c2799690f722cd30b5f3f9ff0e",
-      "bytes": 24641,
+      "sha256": "79c20105a0d36dc9da5ceb452130860257d369e1d0db483aa0df3958a38c9718",
+      "bytes": 23531,
       "attachments": {},
       "pages": [
         {
@@ -1417,8 +1417,8 @@
       ]
     },
     "normal.pdf": {
-      "sha256": "8bf443e315ca00176613afad43a2c044ab278fb1a8794440e2e2da3020d94c51",
-      "bytes": 51326,
+      "sha256": "bd23b5ab3ce84ce37c07bc7ba110ca1a24b0c093b2345117b607f549a5107b40",
+      "bytes": 47973,
       "attachments": {
         "orbit.gif": {
           "bytes": 22197,
@@ -1492,8 +1492,8 @@
       ]
     },
     "notes-right.pdf": {
-      "sha256": "331c57510e92bd480e74f157077cba06f59f1cb44808c9ced9e45c04e38aa458",
-      "bytes": 57110,
+      "sha256": "e220da2b1bbd8df1b6fabbd28a3357221eea80b25653d3ae80027bc54830aa8b",
+      "bytes": 52987,
       "attachments": {
         "orbit.gif": {
           "bytes": 22197,
@@ -1567,8 +1567,8 @@
       ]
     },
     "plain.pdf": {
-      "sha256": "bf3326a67efbdb3e5d66dfc4f14b31632ba1656c6012d0af8cceaf2108bd722d",
-      "bytes": 22635,
+      "sha256": "de6a2f69c4e7a133b66ddedb3b230a6b67d564d7e0e7ae1947476f5fdb755238",
+      "bytes": 20541,
       "attachments": {},
       "pages": [
         {
@@ -1594,8 +1594,8 @@
       ]
     },
     "rotated-gif.pdf": {
-      "sha256": "80419c75357f63b2ff3c7fbfae833d82ec290ad3548855602ca35c48201a5ead",
-      "bytes": 9898,
+      "sha256": "e745d24181f12076df94076946da4dc3f741ce3bddefbdb4d201d94a3e6d5681",
+      "bytes": 9934,
       "attachments": {
         "orbit.gif": {
           "bytes": 22197,
@@ -1626,8 +1626,8 @@
       ]
     },
     "rotated.pdf": {
-      "sha256": "9f8d5a4db96ed09af8917d1e98e517be4eb7c3ad64baf8ada482b61b5a59db5f",
-      "bytes": 22174,
+      "sha256": "c1832ae98578cf48f29921f3865016ff7ba4a5987fb64c394357cd99d1b055a2",
+      "bytes": 21012,
       "attachments": {},
       "pages": [
         {
@@ -1653,8 +1653,8 @@
       ]
     },
     "single-gif.pdf": {
-      "sha256": "cb0450c13ded5969656086a70f7b5f993a873cefbe232f4c703a956e0e554421",
-      "bytes": 10096,
+      "sha256": "8d6cb264b79eb5cd6decd5259ee9f34e0949deede9579d0ce1b829631a92108a",
+      "bytes": 9583,
       "attachments": {
         "orbit.gif": {
           "bytes": 22197,
@@ -1685,8 +1685,8 @@
       ]
     },
     "transparent.pdf": {
-      "sha256": "9e56c1f88106f5af2faf5d4121a9960dc757a025d36c24658450e9b7342ddf74",
-      "bytes": 23231,
+      "sha256": "33bdcfb4cbf8719c0394f0a4fcf88cb237cb718080e1175d3bcd9ec3a0bc0445",
+      "bytes": 20952,
       "attachments": {
         "transparent.gif": {
           "bytes": 11226,

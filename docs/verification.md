@@ -161,3 +161,44 @@ verified by accelerating only the configured 60-second timer to 800 ms in the
 test harness. The 375-pixel mobile viewport had no horizontal overflow. There
 were no browser exceptions. Existing local-file and navigation regression
 checks also passed. Safari and Firefox were not exercised for this update.
+
+## Optimized SIMD128 build
+
+The WASM target now enables `simd128`. Release settings use `opt-level = 3`, fat
+LTO, one codegen unit, and aborting panics. Debug information and the generated
+name/producers sections are stripped. A compile guard rejects a WASM build with
+SIMD disabled, including a deliberate `RUSTFLAGS='-C target-feature=-simd128'`
+override tested locally.
+
+The final packaged module passes validation with `wasm-tools` **1.245.1** and
+fails validation specifically on a SIMD instruction when SIMD is disabled. This
+check also runs in the deployment build. Independent instruction decoding with
+wasmparser counted **38,203 SIMD instructions**, including vector loads, stores,
+shuffles, and floating-point multiplication. No relaxed SIMD instructions were
+observed. The only custom section is `target_features`, which includes
+`+simd128`. The final module is **4,770,877 bytes**, compared with **5,452,632** for
+the preceding build: a 12.5% reduction from the combined SIMD and stripping
+changes.
+
+Before/after browser measurements used Chromium **154.0.8037.57** on the same
+Linux container, a 1440 × 1050 presenter and 1280 × 720 audience at DPR 2, and the
+dense 120-slide fixture described above. The baseline was commit `a1b74db`.
+Build processes and other browser checks were idle during the paired runs.
+Each of seven cold samples loaded the PDF afresh and jumped directly to slide
+120, outside the adjacent-slide cache. Fourteen cached samples alternated
+between slides 119 and 120. Cold here means a raster cache miss, with the WASM
+instance already running.
+
+| Median event-handler entry to mounted canvas | Before → SIMD |
+| --- | --- |
+| Presenter, cold slide | 27.7 → 16.1 ms |
+| Audience, cold slide | 90.0 → 45.1 ms |
+| Presenter, cached slide | 1.1 → 1.0 ms |
+| Audience, cached slide | 6.8 → 7.1 ms |
+
+Cold slides uploaded one canvas per window; cached slides uploaded none. Final
+canvas RGBA hashes matched exactly between builds in both windows. Browser
+acceptance checks, all **27 native Rust tests**, formatting, native/WASM Clippy,
+and the optimized release build passed. No browser exceptions were observed.
+These measurements describe the tested headless Chromium fixture; they do not
+establish Safari timing or general speed guarantees.

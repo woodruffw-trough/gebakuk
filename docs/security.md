@@ -80,5 +80,7 @@ memory sandbox. Use trusted presentations when predictable responsiveness matter
 - The audience window requires popup permission. Fullscreen requires an explicit
   user gesture; automatic monitor selection is unavailable.
 - Serve the application through HTTP or HTTPS. Direct `file://` use is unsupported.
+- The WASM module requires WebAssembly SIMD128 support; no scalar fallback is
+  provided for browsers without it.
 - Desktop Chromium is the initial automated browser verification target. Firefox
   and Safari need separate verification; compatibility with them is not claimed.

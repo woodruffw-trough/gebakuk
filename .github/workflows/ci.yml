@@ -35,7 +35,9 @@ jobs:
         run: cargo clippy --locked -p presenter-web --target wasm32-unknown-unknown -- -D warnings
       - name: Install matching WASM bindings generator
         run: cargo install --locked wasm-bindgen-cli --version 0.2.129
-      - name: Build static distribution
+      - name: Install pinned WASM validator
+        run: cargo install --locked wasm-tools --version 1.245.1 --no-default-features --features validate
+      - name: Build and validate SIMD128 distribution
         run: scripts/build.sh
       - name: Package Pages site
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

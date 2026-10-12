@@ -38,8 +38,10 @@ were verified to produce byte-identical PDFs, media, and manifests.
 
 Serve `dist/` through HTTP and exercise the following in a current desktop browser:
 
-1. Open an ordinary PDF and a notes-right PDF through the local file picker,
-   the URL field, and an application link with `?source=sample.pdf`.
+1. In Current Slide, open an ordinary PDF and a notes-right PDF by clicking the
+   file target, dropping a file, or submitting the URL field. Click Open sample
+   PDF and confirm `?source=sample.pdf` loads it without a browser download.
+   Check Change PDF, Cancel, and application links with `?source=`.
 2. Switch layout; confirm notes are visible only in the presenter.
 3. Open the audience window, navigate using every documented key, and confirm
    both windows follow the same slide. Check keyboard focus in controls.
@@ -241,3 +243,30 @@ alignment and resize; slide synchronization; and handled request/exit rejections
 No page errors or unhandled promise rejections were observed. Headless Chromium
 did not honor the Escape key as a native fullscreen exit, so external exit was
 verified through the browser API instead. Safari was not exercised for this fix.
+
+## Unified PDF opener
+
+Current Slide now contains the file target, URL field, and sample link. The
+sample link opens the application with `?source=sample.pdf`. Change PDF reopens
+the same controls; Cancel aborts pending work and restores the existing deck.
+File selection and dropping share size checks and stale-load protection. The
+opener keeps the canvas dimensioned underneath it while making the slide inert;
+presenter fullscreen is disabled until the opener closes.
+
+All **27 native Rust tests**, formatting, native/WASM Clippy, and the optimized
+SIMD128 build pass. Chromium **154.0.8037.57** passed thirteen grouped browser
+checks in 14.85 seconds with no page errors. Four native file-chooser events and
+zero download events were observed. Tests cover clicks on the opener background
+and button, Enter/Space activation, initial and replacement drops, arbitrary
+file MIME metadata, nested drag highlights and cleanup, outside-drop navigation
+prevention, invalid/multiple/oversized files, cancellation of a delayed URL,
+URL replacement, audience synchronization, GIF URL cleanup, source autoload,
+and sample navigation. Clicks on the URL controls and loaded canvas do not open
+the file picker. Native input clicks stop propagation to avoid re-entering the
+opener callback.
+
+Change PDF focuses the file target; Cancel restores focus to the slide. Presenter
+fullscreen is enabled after loading or cancellation, and slide double-click
+still toggles fullscreen. Visual checks at widths **320, 375, and 1440 pixels**
+found no horizontal overflow, clipped controls, or overlap between the sample
+link and Cancel. Safari and Firefox were not exercised for this update.

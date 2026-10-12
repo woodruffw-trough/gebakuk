@@ -1,6 +1,8 @@
 @font-face { font-family: system; src: local("Inter"), local("SF Pro Display"), local("Segoe UI"); }
 :root { color-scheme: dark; font-family: system, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #101318; color: #edf0f3; --muted: #94a1ae; --line: #2c333e; --surface: #191e26; --accent: #f5a76c; }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 body { margin: 0; min-width: 320px; }
 button, select, input { font: inherit; }
 button, select, .file-label { border: 1px solid #3b4552; border-radius: 8px; color: #e5eaf0; background: #242c36; padding: 10px 14px; cursor: pointer; transition: background .15s, border-color .15s; }
@@ -16,12 +18,7 @@ h1, h2, p { margin-top: 0; }
 .toolbar h1 { margin: 0; font-size: 23px; font-weight: 650; letter-spacing: -.6px; }
 .brand { display: flex; align-items: center; gap: 12px; margin-right: auto; }
 .brand .brand-mark { width: 36px; height: 36px; font-size: 27px; }
-.toolbar .file-button { color: #e5eaf0; }
 .toolbar label { color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 8px; }
-#pdf-url-form { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
-#pdf-url-input { width: 220px; min-width: 0; max-width: 100%; border: 1px solid #3b4552; border-radius: 8px; color: #edf0f3; background: #151a21; padding: 10px 12px; }
-#file-input { max-width: 235px; font-size: 12px; color: var(--muted); }
-#file-input::file-selector-button { border: 1px solid #3b4552; border-radius: 8px; color: #edf0f3; background: #242c36; padding: 10px 12px; margin-right: 10px; cursor: pointer; }
 #audience-button { color: #201b16; background: var(--accent); border-color: var(--accent); font-weight: 650; }
 #audience-button:hover { background: #ffc197; }
 .presenter-grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 22px; align-items: start; }
@@ -30,6 +27,19 @@ h1, h2, p { margin-top: 0; }
 .panel-heading { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); padding-right: 18px; }
 .panel-heading h2 { border: 0; }
 .panel-heading > span { color: var(--muted); font-size: 11px; }
+.panel-actions { display: flex; align-items: center; gap: 12px; min-width: 0; }
+#open-document-button { padding: 6px 9px; font-size: 12px; white-space: nowrap; }
+.current-content { position: relative; }
+#pdf-loader { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px; background: #0b0d11; }
+#file-open-button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; width: min(100%, 420px); min-height: 112px; border: 1px dashed #556477; background: #151a21; color: #edf0f3; font-size: 15px; }
+#file-open-button:hover { border-color: var(--accent); background: #1d242e; }
+#pdf-url-form { display: flex; align-items: center; gap: 8px; width: min(100%, 420px); min-width: 0; }
+#pdf-url-input { flex: 1; width: 0; min-width: 0; border: 1px solid #3b4552; border-radius: 8px; color: #edf0f3; background: #151a21; padding: 10px 12px; }
+#url-load-button { flex: none; }
+#sample-link { font-size: 13px; line-height: 1.5; }
+#loader-close-button { position: absolute; bottom: 18px; right: 24px; padding: 6px 9px; font-size: 12px; }
+#current-panel[data-drag-over] { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 2px; }
+#current-panel[data-drag-over] #file-open-button { border-color: var(--accent); background: #30251d; }
 .slide-viewport { position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; min-height: 180px; width: 100%; aspect-ratio: 16 / 9; background: #0b0d11; }
 .slide-surface { position: relative; flex: none; overflow: hidden; line-height: 0; }
 .slide-surface canvas { display: block; width: 100%; height: 100%; }
@@ -46,7 +56,7 @@ h1, h2, p { margin-top: 0; }
 .empty-icon { font-size: 40px; color: #677789; }
 .empty-state h2, .empty-state h3 { padding: 0; border: 0; margin: 0 0 10px; text-transform: none; color: #edf0f3; font-size: 21px; letter-spacing: -.4px; }
 .controls, .navigation, .presenter-footer, footer { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 22px; }
-#slide-count { font-variant-numeric: tabular-nums; font-size: 14px; color: #dce3eb; padding: 0 6px; }
+#slide-count { font-variant-numeric: tabular-nums; font-size: 14px; color: #dce3eb; padding: 0 6px; white-space: nowrap; }
 #elapsed { margin-left: auto; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 21px; font-variant-numeric: tabular-nums; color: #edf0f3; }
 .timer { display: flex; align-items: center; gap: 12px; margin-left: auto; }
 .timer > span { color: var(--muted); font-size: 12px; }
@@ -61,3 +71,5 @@ kbd { font-family: inherit; font-size: 10px; background: #242c36; color: #c2ccd7
 .audience-shell:hover #fullscreen-button, .audience-shell #fullscreen-button:focus-visible { opacity: 1; }
 @media (max-width: 900px) { .presenter-shell { padding: 20px; } .toolbar { gap: 10px; } .toolbar .brand { width: 100%; margin-bottom: 10px; } .presenter-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 15px; } .viewer-panel:has(#current-slide) { grid-column: 1 / -1; grid-row: auto; } .viewer-panel:has(#next-slide) { grid-column: auto; } #current-slide { min-height: 200px; } }
 @media (max-width: 540px) { .presenter-shell { padding: 14px; } .toolbar label { flex-wrap: wrap; } .presenter-grid { grid-template-columns: 1fr; } .viewer-panel:has(#current-slide) { grid-column: auto; } .controls, .navigation { gap: 8px; } button, select { padding: 9px 11px; font-size: 12px; } #elapsed { margin-left: 0; } .timer { margin-left: 0; } }
+@media (max-width: 900px) { #pdf-loader { padding: 18px; gap: 10px; } #file-open-button { min-height: 72px; padding: 8px 12px; font-size: 14px; gap: 5px; } #file-open-button .empty-icon { font-size: 26px; line-height: 1; } #pdf-url-input { padding: 9px 10px; font-size: 12px; } #url-load-button { padding: 9px 11px; font-size: 12px; } #loader-close-button { bottom: 12px; right: 14px; } }
+@media (max-width: 540px) { .panel-actions { gap: 6px; } #current-panel .panel-heading { padding-right: 12px; } #current-panel .panel-heading h2 { padding-left: 12px; padding-right: 8px; } #slide-count { font-size: 12px; padding: 0; } }

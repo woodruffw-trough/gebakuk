@@ -59,6 +59,24 @@ worker architecture in this release.
 
 ## PDF loading
 
+The presenter uses one opener in the Current Slide panel for local files and
+URLs. Clicking its file target opens a hidden native file picker; dropping one
+file into the panel uses the same loading path, whether a PDF is already open
+or not. Empty and text-only drops are ignored, and multiple files produce an
+error. Drops elsewhere are prevented from navigating the browser but do not
+load a document. File contents are validated without trusting MIME metadata.
+The PDF URL field accepts **Open** or Enter. The sample link uses
+`?source=sample.pdf` to open the sample in the presenter.
+
+The opener hides after a PDF loads; **Change PDF** reopens it. **Cancel** aborts
+an active download and advances the load generation so a late file read cannot
+replace the current PDF. The previous document and diagnostics are restored.
+The opener is a persistent overlay outside `#current-slide`, which rendering
+clears, so the viewport retains its dimensions. While the opener is visible,
+the displayed slide is inert and hidden from assistive technology. The opener
+is presenter-only. A loaded slide does not open a file picker on a single click;
+double-click still toggles fullscreen.
+
 Local files and URL downloads use the same core parsing and size limits. URL
 loading runs in Rust through browser Fetch APIs, accepts HTTP/HTTPS URLs, and
 resolves relative URLs against the application address. Requests use CORS mode,

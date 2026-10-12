@@ -1,0 +1,7 @@
+/target/
+/dist/
+/work/
+/.venv/
+__pycache__/
+*.log
+

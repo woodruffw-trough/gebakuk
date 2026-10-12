@@ -16,8 +16,8 @@ over their static PDF frames.
    Each PDF page is one slide.
 3. Open the audience window using the presenter control. Allow the popup if
    your browser blocks it, then move the new window to your projector.
-4. Use the audience window's fullscreen control. Browsers require a user action
-   before entering fullscreen.
+4. Use the audience window's fullscreen control; click it again to exit.
+   Browsers require a user action before entering fullscreen.
 5. Navigate from the presenter with the buttons or keyboard. Reopen a closed
    audience window to resume at the current slide.
 

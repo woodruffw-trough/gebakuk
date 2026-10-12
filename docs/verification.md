@@ -43,8 +43,9 @@ Serve `dist/` through HTTP and exercise the following in a current desktop brows
 2. Switch layout; confirm notes are visible only in the presenter.
 3. Open the audience window, navigate using every documented key, and confirm
    both windows follow the same slide. Check keyboard focus in controls.
-4. Resize both windows and enter/leave fullscreen through a user action; check
-   canvas sharpness, clipping, and GIF alignment.
+4. Resize both windows. Click the audience fullscreen button twice to enter and
+   exit, then repeat; check its label, canvas sharpness, clipping, and GIF
+   alignment. Check slide double-click toggling and external fullscreen exit.
 5. Display single, multiple, and reused GIFs. Confirm playback and removal on
    navigation. Open the transparent GIF fixture and confirm its diagnostic and
    static fallback.
@@ -220,3 +221,23 @@ credential/referrer omission. Audience windows receive the PDF from the
 presenter without a second download, and their URLs omit `source`. Fragment
 sources and hash changes do not load PDFs. Manual document selection leaves
 the application address unchanged.
+
+## Fullscreen toggle fix
+
+The control previously called `requestFullscreen` on every click. In Chromium,
+two audience button clicks left the document fullscreen and called request
+twice, without calling exit. The handler now checks `document.fullscreenElement`
+and invokes `document.exitFullscreen` when active. Both API promises are retained
+so synchronous exceptions and asynchronous rejections remain handled. The button
+label and `aria-pressed` follow actual fullscreen state through
+`fullscreenchange`, alongside the existing debounced resize handling.
+
+All **27 native Rust tests**, formatting, native/WASM Clippy, and the optimized
+SIMD128 build pass. Chromium **154.0.8037.57** passed eight grouped regression
+checks: repeated audience button entry/exit; audience and presenter slide
+double-click toggles; presenter button entry followed by double-click exit;
+external exit and subsequent toggles; label, ARIA and focus state; GIF playback,
+alignment and resize; slide synchronization; and handled request/exit rejections.
+No page errors or unhandled promise rejections were observed. Headless Chromium
+did not honor the Escape key as a native fullscreen exit, so external exit was
+verified through the browser API instead. Safari was not exercised for this fix.

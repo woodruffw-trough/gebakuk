@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Rebuild test PDFs with Typst 0.14.2, Pillow 12.3.0 and pypdf 6.10.0.
+"""Rebuild test PDFs with Typst 0.15.1, Pillow 12.3.0 and pypdf 6.10.0.
 
 Python generates fixture assets and PDF edge cases only; it is not an
 application dependency. No native PDF renderer is used.
@@ -18,7 +18,7 @@ from pypdf.generic import ArrayObject, DictionaryObject, FloatObject, NameObject
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = ROOT / "fixtures"
 ASSETS = FIXTURES / "assets"
-TYPST_VERSION = "0.14.2"
+TYPST_VERSION = "0.15.1"
 
 
 def make_assets():
@@ -152,7 +152,7 @@ def inspect_fixtures():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--typst", default="typst", help="Typst 0.14.2 executable")
+    parser.add_argument("--typst", default="typst", help="Typst 0.15.1 executable")
     args = parser.parse_args()
     version = subprocess.check_output([args.typst, "--version"], text=True)
     if not version.startswith(f"typst {TYPST_VERSION} "):

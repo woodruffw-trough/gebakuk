@@ -20,6 +20,11 @@ Pinned versions and `Cargo.lock` keep native and WASM builds consistent.
 The core describes page geometry independently of either parser. It resolves
 CropBox/MediaBox and page rotation, converts the PDF's bottom-left coordinates
 into top-left display coordinates, and splits notes-right pages after rotation.
+`Presentation::detected_layout()` selects notes-right only when every effective,
+rotated visible page has an aspect ratio of at least 2.5:1. An empty page set or
+any page below the threshold selects normal. The browser's Auto option resolves
+this choice when a document loads; a manual selection persists until Auto is
+selected again.
 Page sizes may differ within a document; each displayed region is fitted using
 its own geometry. The raster destination covers only the selected region rather
 than allocating a full double-width page bitmap.
@@ -45,6 +50,22 @@ Release builds optimize for execution speed with `opt-level = 3`. No additional
 WASM CPU features are required. PDF parsing and cold rasterization still run on
 the browser's main thread; complex pages and background preparation can briefly
 block input. There is no worker architecture in this release.
+
+## PDF loading
+
+Local files and URL downloads use the same core parsing and size limits. URL
+loading runs in Rust through browser Fetch APIs, accepts HTTP/HTTPS URLs, and
+resolves relative URLs against the application address. Requests use CORS mode,
+omit credentials, and suppress the referrer. The response body is streamed with
+a 64 MiB cap; a 60-second timeout bounds the download. Cross-origin sources must
+provide suitable CORS headers. The browser also enforces mixed-content rules.
+There is no backend proxy or PDF upload.
+
+Typst **0.15.1** is used to regenerate the fifteen checked-in PDF fixtures. Two
+regeneration passes produced identical fixture bytes, and attachment tests
+verify that original GIF bytes survive export unchanged. The previous 0.14.2
+pin constrained fixture generation, not which PDFs the viewer could load.
+The GIF convention is independent of Typst versions.
 
 ## Window synchronization
 

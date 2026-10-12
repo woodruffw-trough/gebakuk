@@ -28,10 +28,10 @@ generated from geometric shapes by the checked-in script. `orbit.gif` and
 transparency. Each GIF has 12 frames, a 320 × 180 logical screen and 120 ms frame
 duration. The GIFs contain no external media or third-party artwork.
 
-Regeneration requires Typst **0.14.2**, Python 3, Pillow **12.3.0** and pypdf
+Regeneration requires Typst **0.15.1**, Python 3, Pillow **12.3.0** and pypdf
 **6.10.0**. These tools are fixture authoring dependencies only; the viewer and
 its build do not use Python. Download the pinned Typst CLI from
-[its release](https://github.com/typst/typst/releases/tag/v0.14.2), then run:
+[its release](https://github.com/typst/typst/releases/tag/v0.15.1), then run:
 
 ```sh
 python3 -m pip install Pillow==12.3.0 pypdf==6.10.0

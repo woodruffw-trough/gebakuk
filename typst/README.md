@@ -1,7 +1,7 @@
 # Authoring animations
 
-Use Typst **0.14.2**. The helper works with ordinary Typst documents and does not
-require a presentation package.
+Examples and fixtures use Typst **0.15.1**. The helper was also verified with
+0.14.2 and works with ordinary Typst documents without a presentation package.
 
 ```typst
 #import "presenter-gif.typ": attach-gif, gif-frame
@@ -20,7 +20,7 @@ Each ID contains 1–128 ASCII letters, digits, periods, underscores or hyphens.
 animation metadata. Conventional PDF readers continue to display the poster.
 
 Typst exports the project-root-relative attachment path, including directories.
-There is no `name:` option in `pdf.attach` in Typst 0.14.2. The helper supplies
+There is no `name:` option in `pdf.attach` in Typst 0.15.1. The helper supplies
 `/orbit.gif` with caller-provided bytes so that the exported name stays exact,
 regardless of the helper's directory. Compile with an explicit project root:
 

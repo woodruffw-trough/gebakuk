@@ -4,7 +4,7 @@
 
 mod protocol;
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::rc::Rc;
 
@@ -14,14 +14,17 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::{Clamped, JsCast};
 use wasm_bindgen_futures::{JsFuture, spawn_local};
 use web_sys::{
-    Document, Element, Event, HtmlCanvasElement, HtmlElement, HtmlInputElement, HtmlSelectElement,
-    KeyboardEvent, MessageEvent, Window,
+    AbortController, Document, Element, Event, HtmlCanvasElement, HtmlElement, HtmlInputElement,
+    HtmlSelectElement, KeyboardEvent, MessageEvent, ReadableStreamDefaultReader, ReferrerPolicy,
+    Request, RequestCredentials, RequestInit, RequestMode, Response, Window,
 };
 
 const PROTOCOL: &str = "rust-pdf-presenter/v1";
 const CACHE_ENTRIES: usize = 6;
 const CACHE_BYTES: usize = 64 * 1024 * 1024;
 const RASTER_PIXELS: f64 = 4_000_000.0;
+const DOWNLOAD_TIMEOUT_MS: i32 = 60_000;
+const DOWNLOAD_ERROR: &str = "Unable to download PDF. Check the URL and the server’s CORS settings. HTTPS pages require an HTTPS PDF URL.";
 
 thread_local! {
     static APP: RefCell<Option<Rc<RefCell<App>>>> = const { RefCell::new(None) };
@@ -72,6 +75,7 @@ struct App {
     sent_document: Option<u32>,
     document_id: u32,
     load_generation: u32,
+    download: Option<AbortController>,
     pdf: Vec<u8>,
     presentation: Option<Presentation>,
     page: usize,
@@ -131,6 +135,7 @@ pub fn start() -> Result<(), JsValue> {
         sent_document: None,
         document_id: 0,
         load_generation: 0,
+        download: None,
         pdf: Vec::new(),
         presentation: None,
         page: 0,
@@ -187,7 +192,7 @@ fn attach_events(state: &Rc<RefCell<App>>) -> Result<(), JsValue> {
             let Some(state) = app() else { return };
             let generation = {
                 let mut state = state.borrow_mut();
-                state.load_generation = state.load_generation.wrapping_add(1);
+                state.begin_load();
                 if file.size() > MAX_FILE_BYTES as f64 {
                     state.status("This PDF exceeds the 64 MiB file limit.", true);
                     return;
@@ -210,18 +215,13 @@ fn attach_events(state: &Rc<RefCell<App>>) -> Result<(), JsValue> {
                 }
             });
         })?;
+        state.listen_element("pdf-url-form", "submit", |event| {
+            event.prevent_default();
+            start_url_load();
+        })?;
         state.listen_element("layout-select", "change", |_| {
             with_app(|state| {
-                let value = state
-                    .dom
-                    .get_element_by_id("layout-select")
-                    .and_then(|element| element.dyn_into::<HtmlSelectElement>().ok())
-                    .map(|select| select.value())
-                    .unwrap_or_default();
-                let Some(layout) = protocol::layout(&value) else {
-                    return;
-                };
-                state.layout = layout;
+                state.resolve_layout();
                 state.cache.clear();
                 state.send_sync("sync");
                 state.render();
@@ -297,6 +297,7 @@ fn attach_events(state: &Rc<RefCell<App>>) -> Result<(), JsValue> {
                 state.send_audience(&message);
             }
             state.clear_gifs();
+            state.cancel_download();
         })
     })?;
     let callback =
@@ -314,6 +315,188 @@ fn attach_events(state: &Rc<RefCell<App>>) -> Result<(), JsValue> {
 fn with_app(action: impl FnOnce(&mut App)) {
     if let Some(state) = app() {
         action(&mut state.borrow_mut());
+    }
+}
+
+fn start_url_load() {
+    let Some(state) = app() else { return };
+    let (window, request, controller, generation) = {
+        let mut state = state.borrow_mut();
+        state.begin_load();
+        let value = state
+            .dom
+            .get_element_by_id("pdf-url-input")
+            .and_then(|element| element.dyn_into::<HtmlInputElement>().ok())
+            .map(|input| input.value())
+            .unwrap_or_default();
+        let request = pdf_request(&state.window, value.trim());
+        let (request, controller) = match request {
+            Ok(request) => request,
+            Err(error) => {
+                state.status(&error, true);
+                return;
+            }
+        };
+        state.download = Some(controller.clone());
+        state.status("Downloading PDF…", false);
+        (
+            state.window.clone(),
+            request,
+            controller,
+            state.load_generation,
+        )
+    };
+    spawn_local(async move {
+        let timed_out = Rc::new(Cell::new(false));
+        let timeout_flag = timed_out.clone();
+        let timeout_controller = controller.clone();
+        let callback = Closure::wrap(Box::new(move || {
+            timeout_flag.set(true);
+            timeout_controller.abort();
+        }) as Box<dyn FnMut()>);
+        let timer = window.set_timeout_with_callback_and_timeout_and_arguments_0(
+            callback.as_ref().unchecked_ref(),
+            DOWNLOAD_TIMEOUT_MS,
+        );
+        let result = match timer {
+            Ok(timer) => {
+                let result = download_pdf(&window, &request, &controller).await;
+                window.clear_timeout_with_handle(timer);
+                result
+            }
+            Err(_) => Err("Unable to start the PDF download.".to_owned()),
+        };
+        // Abort on all failure paths, including a size rejection after headers or
+        // a chunk, so the browser stops receiving the response body.
+        if result.is_err() {
+            controller.abort();
+        }
+        let mut state = state.borrow_mut();
+        if state.load_generation != generation {
+            return;
+        }
+        state.download = None;
+        if timed_out.get() {
+            state.status("PDF download timed out after 60 seconds.", true);
+            return;
+        }
+        match result {
+            Ok(bytes) => state.load_document(bytes, None),
+            Err(error) => state.status(&error, true),
+        }
+    });
+}
+
+fn pdf_request(window: &Window, value: &str) -> Result<(Request, AbortController), String> {
+    if value.is_empty() {
+        return Err("Enter a PDF URL.".to_owned());
+    }
+    if value.len() > 8192 {
+        return Err("This PDF URL is too long.".to_owned());
+    }
+    let base = window.location().href().map_err(|_| DOWNLOAD_ERROR)?;
+    let url = web_sys::Url::new_with_base(value, &base)
+        .map_err(|_| "Enter a valid HTTP or HTTPS PDF URL.")?;
+    if !matches!(url.protocol().as_str(), "http:" | "https:") {
+        return Err("PDF URLs must use HTTP or HTTPS.".to_owned());
+    }
+    if !url.username().is_empty() || !url.password().is_empty() {
+        return Err("PDF URLs cannot contain a username or password.".to_owned());
+    }
+    let controller = AbortController::new().map_err(|_| DOWNLOAD_ERROR)?;
+    let options = RequestInit::new();
+    options.set_method("GET");
+    options.set_mode(RequestMode::Cors);
+    options.set_credentials(RequestCredentials::Omit);
+    options.set_referrer_policy(ReferrerPolicy::NoReferrer);
+    options.set_signal(Some(&controller.signal()));
+    let request =
+        Request::new_with_str_and_init(&url.href(), &options).map_err(|_| DOWNLOAD_ERROR)?;
+    Ok((request, controller))
+}
+
+async fn download_pdf(
+    window: &Window,
+    request: &Request,
+    controller: &AbortController,
+) -> Result<Vec<u8>, String> {
+    let response = JsFuture::from(window.fetch_with_request(request))
+        .await
+        .map_err(|_| DOWNLOAD_ERROR)?
+        .dyn_into::<Response>()
+        .map_err(|_| DOWNLOAD_ERROR)?;
+    if !response.ok() {
+        return Err(format!(
+            "Unable to download PDF: HTTP {}.",
+            response.status()
+        ));
+    }
+    if response
+        .headers()
+        .get("Content-Length")
+        .ok()
+        .flatten()
+        .and_then(|length| length.parse::<u64>().ok())
+        .is_some_and(|length| length > MAX_FILE_BYTES as u64)
+    {
+        return Err("This PDF exceeds the 64 MiB file limit.".to_owned());
+    }
+    let reader = response
+        .body()
+        .ok_or(DOWNLOAD_ERROR)?
+        .get_reader()
+        .dyn_into::<ReadableStreamDefaultReader>()
+        .map_err(|_| DOWNLOAD_ERROR)?;
+    let result = read_pdf_stream(&reader, controller).await;
+    if result.is_err() {
+        controller.abort();
+        // AbortController cancels Fetch too; cancel the reader explicitly so its
+        // retained chunks are released even when a custom stream produced them.
+        let _ = JsFuture::from(reader.cancel()).await;
+    }
+    reader.release_lock();
+    result
+}
+
+async fn read_pdf_stream(
+    reader: &ReadableStreamDefaultReader,
+    controller: &AbortController,
+) -> Result<Vec<u8>, String> {
+    let mut bytes = Vec::new();
+    loop {
+        let chunk = JsFuture::from(reader.read())
+            .await
+            .map_err(|_| DOWNLOAD_ERROR)?;
+        if controller.signal().aborted() {
+            return Err(DOWNLOAD_ERROR.to_owned());
+        }
+        if Reflect::get(&chunk, &JsValue::from_str("done"))
+            .ok()
+            .and_then(|value| value.as_bool())
+            == Some(true)
+        {
+            return Ok(bytes);
+        }
+        let chunk = Reflect::get(&chunk, &JsValue::from_str("value"))
+            .map_err(|_| DOWNLOAD_ERROR)?
+            .dyn_into::<Uint8Array>()
+            .map_err(|_| DOWNLOAD_ERROR)?;
+        let length = chunk.length() as usize;
+        if length > MAX_FILE_BYTES - bytes.len() {
+            return Err("This PDF exceeds the 64 MiB file limit.".to_owned());
+        }
+        let offset = bytes.len();
+        let end = offset + length;
+        if end > bytes.capacity() {
+            let capacity = end
+                .max(bytes.capacity().saturating_mul(2))
+                .min(MAX_FILE_BYTES);
+            bytes
+                .try_reserve_exact(capacity - offset)
+                .map_err(|_| "Not enough memory to download this PDF.")?;
+        }
+        bytes.resize(end, 0);
+        chunk.copy_to(&mut bytes[offset..]);
     }
 }
 
@@ -339,6 +522,31 @@ fn schedule_resize() {
 }
 
 impl App {
+    fn cancel_download(&mut self) {
+        if let Some(controller) = self.download.take() {
+            controller.abort();
+        }
+    }
+
+    fn begin_load(&mut self) {
+        self.load_generation = self.load_generation.wrapping_add(1);
+        self.cancel_download();
+    }
+
+    fn resolve_layout(&mut self) {
+        let value = self
+            .dom
+            .get_element_by_id("layout-select")
+            .and_then(|element| element.dyn_into::<HtmlSelectElement>().ok())
+            .map(|select| select.value())
+            .unwrap_or_default();
+        self.layout = protocol::layout(&value).unwrap_or_else(|| {
+            self.presentation
+                .as_ref()
+                .map_or(Layout::Normal, Presentation::detected_layout)
+        });
+    }
+
     fn listen_element(
         &mut self,
         id: &str,
@@ -399,6 +607,9 @@ impl App {
                 self.invalidate_render();
                 self.pdf = bytes;
                 self.presentation = Some(presentation);
+                if !self.audience_role {
+                    self.resolve_layout();
+                }
                 self.document_id = remote_id.unwrap_or_else(|| self.document_id.wrapping_add(1));
                 self.page = 0;
                 self.started_ms = js_sys::Date::now();
@@ -1255,13 +1466,14 @@ const PRESENTER_HTML: &str = r#"
   <header class="toolbar">
     <div class="brand"><span class="brand-mark" aria-hidden="true">▣</span><h1>Gebakuk</h1></div>
     <label class="file-button">Open PDF<input id="file-input" type="file" accept="application/pdf,.pdf"></label>
-    <label class="layout-control">Page layout<select id="layout-select"><option value="normal">Normal slides</option><option value="notes-right">Notes on right</option></select></label>
+    <form id="pdf-url-form"><label for="pdf-url-input">PDF URL</label><input id="pdf-url-input" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://…/slides.pdf" maxlength="8192" required><button id="url-load-button" type="submit">Load URL</button></form>
+    <label class="layout-control">Page layout<select id="layout-select"><option value="auto">Auto</option><option value="normal">Normal slides</option><option value="notes-right">Notes on right</option></select></label>
     <button id="audience-button" class="primary-button" type="button">Open audience ↗</button>
   </header>
   <div id="status" class="status" role="status" aria-live="polite"></div>
   <div class="presenter-grid">
     <section class="viewer-panel current-panel"><div class="panel-heading"><h2>Current slide</h2><span id="slide-count">— / —</span></div><div id="current-slide" class="slide-viewport" tabindex="0"><div class="empty-hint empty-state"><span class="empty-icon" aria-hidden="true">▧</span><p>Open a PDF</p><a href="./sample.pdf" download>Download the sample PDF</a></div></div></section>
-    <section class="viewer-panel notes-panel"><div class="panel-heading"><h2>Speaker notes</h2><span>Presenter only</span></div><div id="notes-slide" class="slide-viewport"><p class="empty-hint">Choose “Notes on right” for double-width PDFs.</p></div></section>
+    <section class="viewer-panel notes-panel"><div class="panel-heading"><h2>Speaker notes</h2><span>Presenter only</span></div><div id="notes-slide" class="slide-viewport"><p class="empty-hint">Double-width PDFs show notes here.</p></div></section>
     <section class="viewer-panel next-panel"><div class="panel-heading"><h2>Next slide</h2></div><div id="next-slide" class="slide-viewport"></div></section>
   </div>
   <footer class="presentation-controls"><div class="navigation"><button id="previous-button" type="button" aria-label="Previous slide">← Previous</button><button id="next-button" type="button">Next →</button><span class="keyboard-hint">← → or Space</span></div><div class="timer"><span>Elapsed</span><output id="elapsed">00:00:00</output><button id="reset-timer-button" type="button" aria-label="Reset elapsed timer">Reset</button></div><button id="fullscreen-button" type="button">Fullscreen ⛶</button></footer>

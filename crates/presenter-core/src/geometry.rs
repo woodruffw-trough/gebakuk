@@ -48,6 +48,14 @@ pub struct PageInfo {
     pub(crate) animations: Vec<crate::Overlay>,
 }
 
+pub(crate) fn detected_layout(pages: &[PageInfo]) -> Layout {
+    if !pages.is_empty() && pages.iter().all(|page| page.width / page.height >= 2.5) {
+        Layout::NotesRight
+    } else {
+        Layout::Normal
+    }
+}
+
 impl PageInfo {
     pub(crate) fn new(bounds: [f64; 4], rotation: i64) -> Result<Self, Error> {
         let [left, bottom, right, top] = bounds;
@@ -141,6 +149,38 @@ impl PageInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn layout_detection_preserves_ordinary_slides_and_detects_doubled_slides() {
+        for (width, height, expected) in [
+            (400.0, 300.0, Layout::Normal),
+            (640.0, 360.0, Layout::Normal),
+            (210.0, 90.0, Layout::Normal),
+            (360.0, 640.0, Layout::Normal),
+            (300.0, 300.0, Layout::Normal),
+            (800.0, 300.0, Layout::NotesRight),
+            (1280.0, 360.0, Layout::NotesRight),
+            (249.0, 100.0, Layout::Normal),
+            (250.0, 100.0, Layout::NotesRight),
+        ] {
+            let page = PageInfo::new([0.0, 0.0, width, height], 0).unwrap();
+            assert_eq!(detected_layout(&[page]), expected, "{width}:{height}");
+        }
+    }
+
+    #[test]
+    fn layout_detection_requires_every_page_to_qualify() {
+        let normal = PageInfo::new([0.0, 0.0, 640.0, 360.0], 0).unwrap();
+        let notes = PageInfo::new([0.0, 0.0, 1280.0, 360.0], 0).unwrap();
+        let smaller_notes = PageInfo::new([0.0, 0.0, 800.0, 300.0], 0).unwrap();
+        assert_eq!(detected_layout(&[]), Layout::Normal);
+        assert_eq!(
+            detected_layout(&[normal.clone(), notes.clone()]),
+            Layout::Normal
+        );
+        assert_eq!(detected_layout(&[notes.clone(), normal]), Layout::Normal);
+        assert_eq!(detected_layout(&[notes, smaller_notes]), Layout::NotesRight);
+    }
 
     #[test]
     fn nonzero_origins_and_rotations() {

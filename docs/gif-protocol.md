@@ -20,7 +20,10 @@ referenced by multiple annotations on one page or across several pages.
 The optional [Typst helper](../typst/presenter-gif.typ) uses an absolute virtual
 attachment path, `/<id>.gif`, so Typst exports the same attachment name even when
 the importing source file lives in a subdirectory. This mapping is verified with
-Typst 0.14.2. It does not require a slide theme or presentation package.
+Typst **0.15.1**, including recovery of the original GIF bytes. All fifteen PDF
+fixtures regenerate deterministically with this version. The earlier 0.14.2 pin
+was for fixture generation; the viewer accepts PDFs that follow this convention
+regardless of producer. It does not require a slide theme or presentation package.
 
 ```typst
 #import "presenter-gif.typ": attach-gif, gif-frame

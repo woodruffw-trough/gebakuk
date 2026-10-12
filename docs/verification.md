@@ -18,7 +18,7 @@ Neither compilation nor native tests substitute for browser interaction checks.
 ## Rebuild fixtures
 
 The committed fixture matrix and exact regeneration procedure are documented in
-[`fixtures/README.md`](../fixtures/README.md). Generation uses Typst **0.14.2**,
+[`fixtures/README.md`](../fixtures/README.md). Generation uses Typst **0.15.1**,
 Python 3, Pillow **12.3.0**, and pypdf **6.10.0**, with no native PDF renderer.
 
 ```sh
@@ -136,3 +136,28 @@ correct current and next slide. Document replacement cancels stale work, resize
 keeps GIF alignment, and replacing the document releases GIF URLs. Retained
 canvas memory stays bounded. No browser exceptions or document upload requests
 were observed. The updated WASM module is approximately **5.2 MiB**.
+
+## URL loading, Auto layout, and Typst 0.15.1
+
+All fifteen PDF fixtures were regenerated with Typst **0.15.1 (9dfd3a08)**.
+Two consecutive generations produced identical hashes. The helper still exports
+the exact original GIF bytes as `orbit.gif`, with the expected marker rectangle.
+All **27 native Rust tests**, formatting, native and WASM Clippy, and the release
+build pass. Layout tests cover ordinary and doubled slide ratios, mixed decks,
+and effective inherited CropBoxes after rotation.
+
+Chromium **154.0.8037.57** passed eighteen URL/layout browser cases over local
+HTTP. They cover same-origin and CORS-enabled downloads, relative URLs submitted
+with Enter, redirects, valid chunked PDFs without Content-Length, automatic
+redetection on document replacement, persistent manual overrides, and GIF and
+audience synchronization. Requests were GETs without Cookie, Authorization, or
+Referer headers.
+
+Invalid schemes and credential-bearing URLs made no requests. HTTP errors,
+denied CORS, malformed PDFs, and declared or streamed size-limit failures left
+the previous presentation usable. A replacement URL or local file aborted a
+pending download and prevented stale completion. Timeout cancellation was
+verified by accelerating only the configured 60-second timer to 800 ms in the
+test harness. The 375-pixel mobile viewport had no horizontal overflow. There
+were no browser exceptions. Existing local-file and navigation regression
+checks also passed. Safari and Firefox were not exercised for this update.

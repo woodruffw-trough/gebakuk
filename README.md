@@ -1,6 +1,6 @@
 # Gebakuk
 
-A local PDF presenter written in Rust and compiled to WebAssembly. Open a PDF,
+A PDF presenter written in Rust and compiled to WebAssembly. Open a PDF,
 keep your notes in the presenter window, and show the audience a separate,
 synchronized slide window. GIFs attached using the documented convention play
 over their static PDF frames.
@@ -10,9 +10,10 @@ over their static PDF frames.
 
 ## Present a PDF
 
-1. Open the application and choose a PDF from your computer.
-2. Choose **Normal** for ordinary slides, or **Notes right** for pages with a
-   slide on the left and speaker notes on the right. Each PDF page is one slide.
+1. Open the application and choose a PDF from your computer, or enter its address
+   in **PDF URL** and choose **Load URL**.
+2. Leave the layout on **Auto**, or choose **Normal** or **Notes right** manually.
+   Each PDF page is one slide.
 3. Open the audience window using the presenter control. Allow the popup if
    your browser blocks it, then move the new window to your projector.
 4. Use the audience window's fullscreen control. Browsers require a user action
@@ -29,8 +30,18 @@ over their static PDF frames.
 
 Navigation keys are ignored while an interactive control has focus. The presenter
 also shows the current slide, notes in notes-right mode, a next-slide preview,
-slide counts, and an elapsed timer. Layout selection is manual: a wide page is
-not automatically assumed to contain notes.
+slide counts, and an elapsed timer. **Auto** selects **Notes right** when every
+visible page is at least 2.5 times as wide as it is tall, after cropping and
+rotation. This detects doubled 4:3 and 16:9 slides while preserving ordinary
+widescreen slides. Aspect ratio is a heuristic: use a manual layout for unusual
+page shapes or mixed decks. A manual choice stays selected until you choose
+**Auto** again; Auto detects the layout whenever a new PDF is loaded.
+
+PDF URLs may be absolute HTTP/HTTPS addresses or relative to the application.
+Cross-origin URLs require the source server to allow CORS, and HTTPS browsers
+may block HTTP downloads as mixed content. Downloads omit credentials and the
+referrer, have a 60-second timeout, and enforce the same 64 MiB limit as local
+files. There is no download proxy.
 
 PDFs are processed in your browser and are never uploaded. Both windows receive
 the complete PDF; hiding notes in the audience interface does not make them
@@ -59,6 +70,8 @@ initializes the generated WASM module.
 ## Add GIFs to a Typst presentation
 
 Use the optional helper in [`typst/presenter-gif.typ`](typst/presenter-gif.typ).
+The helper and fixture generation are verified with **Typst 0.15.1**. The viewer
+reads the resulting PDF and does not restrict the Typst version used to create it.
 Attach an opaque GIF once with an ID and wrap each static frame in a matching
 link. IDs map to root-level attachment names `<id>.gif`, and markers use
 `https://presenter.invalid/gif/v1/<id>`. The viewer recognizes these links without

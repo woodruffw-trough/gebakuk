@@ -307,3 +307,13 @@ windows. GIFs animate at their annotated rectangles; browser Blob hashes match
 the originals. Navigation reuses the attachments, and replacement releases all
 GIF URLs. No page errors or downloads were observed. Safari and Firefox were
 not exercised for this update.
+
+## Guide browser-version table
+
+The guide now lists desktop browser feature minimums and release years. The
+[compatibility notes](browser-support.md) record the supporting feature and
+release data; these are inferred minimums rather than historical-version tests.
+The eight-page PDF rebuilds identically, and its table and privacy notes fit.
+Chromium **154.0.8037.57** verified every page in both windows with no page errors
+or downloads. All **28 native Rust tests**, formatting, native/WASM Clippy, and
+the optimized SIMD128 build pass.

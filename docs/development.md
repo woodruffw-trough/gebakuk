@@ -86,6 +86,9 @@ activates the WASM SIMD implementations in VelloCPU rendering through
 `fearless_simd` and in PicScale image resizing. Browsers must support WebAssembly
 SIMD128; no scalar fallback is built.
 
+See [browser support](browser-support.md) for desktop version requirements and
+their sources.
+
 PDF parsing and cold rasterization still run on the browser's main thread;
 complex pages and background preparation can briefly block input. There is no
 worker architecture in this release.

@@ -161,6 +161,7 @@ pub fn start() -> Result<(), JsValue> {
     APP.with(|slot| *slot.borrow_mut() = Some(app.clone()));
     attach_events(&app)?;
     app.borrow_mut().update_controls();
+    app.borrow().update_fullscreen_button();
     if audience_role {
         let state = app.borrow();
         state.status(
@@ -296,7 +297,10 @@ fn attach_events(state: &Rc<RefCell<App>>) -> Result<(), JsValue> {
         });
     })?;
     state.listen_window("resize", |_| schedule_resize())?;
-    state.listen_document("fullscreenchange", |_| schedule_resize())?;
+    state.listen_document("fullscreenchange", |_| {
+        with_app(|state| state.update_fullscreen_button());
+        schedule_resize();
+    })?;
     state.listen_window("message", |event| {
         let Some(event) = event.dyn_ref::<MessageEvent>() else {
             return;
@@ -1169,33 +1173,51 @@ impl App {
     }
 
     fn fullscreen(&mut self) {
-        let target = if self.audience_role {
-            self.dom.document_element()
+        let (target, method, failure) = if self.dom.fullscreen_element().is_some() {
+            (
+                JsValue::from(self.dom.clone()),
+                "exitFullscreen",
+                "Unable to exit fullscreen",
+            )
         } else {
-            self.dom.get_element_by_id("current-slide")
+            let target = if self.audience_role {
+                self.dom.document_element()
+            } else {
+                self.dom.get_element_by_id("current-slide")
+            };
+            let Some(target) = target else { return };
+            (
+                JsValue::from(target),
+                "requestFullscreen",
+                "Fullscreen is unavailable",
+            )
         };
-        if let Some(target) = target {
-            // web-sys currently discards requestFullscreen's Promise; retain it to
-            // report browser rejections such as missing user activation.
-            let request = Reflect::get(&target, &JsValue::from_str("requestFullscreen"))
-                .and_then(|function| function.dyn_into::<js_sys::Function>())
-                .and_then(|function| function.call0(&target));
-            match request {
-                Ok(result) => spawn_local(async move {
-                    if let Err(error) = JsFuture::from(js_sys::Promise::resolve(&result)).await {
-                        with_app(|state| {
-                            state.status(
-                                &format!("Fullscreen is unavailable: {}", js_error(error)),
-                                true,
-                            )
-                        });
-                    }
-                }),
-                Err(error) => self.status(
-                    &format!("Fullscreen is unavailable: {}", js_error(error)),
-                    true,
-                ),
-            }
+        // web-sys discards both fullscreen APIs' Promises. Keep them to report
+        // browser rejections while binding each method to its own receiver.
+        let request = Reflect::get(&target, &JsValue::from_str(method))
+            .and_then(|function| function.dyn_into::<js_sys::Function>())
+            .and_then(|function| function.call0(&target));
+        match request {
+            Ok(result) => spawn_local(async move {
+                if let Err(error) = JsFuture::from(js_sys::Promise::resolve(&result)).await {
+                    with_app(|state| {
+                        state.status(&format!("{failure}: {}", js_error(error)), true)
+                    });
+                }
+            }),
+            Err(error) => self.status(&format!("{failure}: {}", js_error(error)), true),
+        }
+    }
+
+    fn update_fullscreen_button(&self) {
+        if let Some(button) = self.dom.get_element_by_id("fullscreen-button") {
+            let active = self.dom.fullscreen_element().is_some();
+            button.set_text_content(Some(if active {
+                "Exit fullscreen ⛶"
+            } else {
+                "Fullscreen ⛶"
+            }));
+            let _ = button.set_attribute("aria-pressed", if active { "true" } else { "false" });
         }
     }
 

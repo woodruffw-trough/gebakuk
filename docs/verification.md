@@ -38,7 +38,8 @@ were verified to produce byte-identical PDFs, media, and manifests.
 
 Serve `dist/` through HTTP and exercise the following in a current desktop browser:
 
-1. Open an ordinary PDF and a notes-right PDF through the local file picker.
+1. Open an ordinary PDF and a notes-right PDF through the local file picker,
+   the URL field, and an application link with `?source=sample.pdf`.
 2. Switch layout; confirm notes are visible only in the presenter.
 3. Open the audience window, navigate using every documented key, and confirm
    both windows follow the same slide. Check keyboard focus in controls.
@@ -202,3 +203,20 @@ acceptance checks, all **27 native Rust tests**, formatting, native/WASM Clippy,
 and the optimized release build passed. No browser exceptions were observed.
 These measurements describe the tested headless Chromium fixture; they do not
 establish Safari timing or general speed guarantees.
+
+## Source query parameter
+
+Presenter links with `?source=` automatically fill the URL field and use the
+existing URL loader once at startup. All **27 native Rust tests**, formatting,
+native/WASM Clippy, and the optimized SIMD128 build pass. Chromium
+**154.0.8037.57** passed fourteen grouped browser checks with no page errors.
+
+Coverage includes the requested unencoded simple URL format, once-only decoding
+of encoded PDF URLs containing query delimiters, plus signs, percent escapes,
+and PDF fragments; relative sources beneath a repository path; first-value
+handling for repeated keys; automatic layout and GIFs; empty and invalid source
+errors; local or manual URL loads superseding a pending startup download; and
+credential/referrer omission. Audience windows receive the PDF from the
+presenter without a second download, and their URLs omit `source`. Fragment
+sources and hash changes do not load PDFs. Manual document selection leaves
+the application address unchanged.

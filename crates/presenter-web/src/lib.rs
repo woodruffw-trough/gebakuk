@@ -172,6 +172,16 @@ pub fn start() -> Result<(), JsValue> {
             false,
         );
         state.send_ready();
+    } else if let Some(source) = url.search_params().get("source") {
+        let input = app
+            .borrow()
+            .dom
+            .get_element_by_id("pdf-url-input")
+            .and_then(|element| element.dyn_into::<HtmlInputElement>().ok());
+        if let Some(input) = input {
+            input.set_value(&source);
+            start_url_load();
+        }
     }
     Ok(())
 }
@@ -1208,6 +1218,7 @@ impl App {
             self.status("Unable to create audience URL.", true);
             return;
         };
+        url.search_params().delete("source");
         url.search_params().set("role", "audience");
         match self
             .window

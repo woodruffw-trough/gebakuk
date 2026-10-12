@@ -43,6 +43,25 @@ may block HTTP downloads as mixed content. Downloads omit credentials and the
 referrer, have a 60-second timeout, and enforce the same 64 MiB limit as local
 files. There is no download proxy.
 
+To load a PDF when the application opens, put its URL in `?source=`. This link
+loads the included sample:
+
+```text
+https://woodruffw-trough.github.io/gebakuk/?source=sample.pdf
+```
+
+Encode the entire PDF URL with `encodeURIComponent` or `URLSearchParams` when
+it contains `&`, `+`, or `#`. For example, the URL
+`https://example.org/slides.pdf?a=1&b=2` can be passed as:
+
+```text
+?source=https%3A%2F%2Fexample.org%2Fslides.pdf%3Fa%3D1%26b%3D2
+```
+
+These links use the same download limits and CORS requirements as **Load URL**.
+The static host receives query parameters with the page request, and the browser
+contacts the PDF source to download the document.
+
 PDFs are processed in your browser and are never uploaded. Both windows receive
 the complete PDF; hiding notes in the audience interface does not make them
 confidential. Standard PDF readers still show the original static slides.

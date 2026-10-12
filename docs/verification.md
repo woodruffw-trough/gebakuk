@@ -39,8 +39,8 @@ were verified to produce byte-identical PDFs, media, and manifests.
 Serve `dist/` through HTTP and exercise the following in a current desktop browser:
 
 1. In Current Slide, open an ordinary PDF and a notes-right PDF by clicking the
-   file target, dropping a file, or submitting the URL field. Click Open sample
-   PDF and confirm `?source=sample.pdf` loads it without a browser download.
+   file target, dropping a file, or submitting the URL field. Click Open guide
+   and confirm `?source=guide.pdf` loads it without a browser download.
    Check Change PDF, Cancel, and application links with `?source=`.
 2. Switch layout; confirm notes are visible only in the presenter.
 3. Open the audience window, navigate using every documented key, and confirm
@@ -270,3 +270,19 @@ fullscreen is enabled after loading or cancellation, and slide double-click
 still toggles fullscreen. Visual checks at widths **320, 375, and 1440 pixels**
 found no horizontal overflow, clipped controls, or overlap between the sample
 link and Cancel. Safari and Firefox were not exercised for this update.
+
+## Public guide and README
+
+The eight-page `guide.pdf` rebuilds identically with Typst 0.15.1, bundled fonts,
+and creation timestamp 0. Its attached GIF retains the original bytes. All pages
+were visually reviewed. Chromium **154.0.8037.57** verified guide-link autoload,
+Auto layout, all eight pages in both windows, GIF playback, and Change PDF/Cancel
+with no page errors or downloads. The README screenshot captures the actual
+presenter with the guide, notes, preview, timer, and connected audience.
+
+The linked PyCon US 2025 presentation was fetched from raw GitHub: HTTP 200,
+CORS `*`, 3,904,102 bytes, and 42 pages. A browser check verified its encoded
+source URL and rendered downloaded bytes using request interception. All
+**27 native Rust tests**, formatting, native/WASM Clippy, and the optimized
+SIMD128 build pass. The packaged guide matches `web/guide.pdf`; `sample.pdf`
+is no longer packaged. Safari and Firefox were not exercised for this update.

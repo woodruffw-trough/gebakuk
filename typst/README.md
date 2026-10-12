@@ -34,10 +34,26 @@ poster would leave old pixels visible. Initially, placements must be rectangular
 unrotated and preserve the original GIF aspect ratio. GIFs on rotated PDF pages
 also retain their static representation.
 
-[normal.typ](normal.typ) makes one slide per 640 × 360 pt page.
-[notes-right.typ](notes-right.typ) makes a 1280 × 360 pt page whose left half is
-the slide and right half is notes. Attach each ID once and reuse `gif-frame`
+[normal.typ](normal.typ) is a fixture deck with one slide per 640 × 360 pt page.
+[notes-right.typ](notes-right.typ) is a fixture deck with 1280 × 360 pt pages whose
+left half is the slide and right half is notes. Attach each ID once and reuse `gif-frame`
 wherever needed. Speaker notes remain readable in the original PDF.
 
 The [fixture instructions](../fixtures/README.md) describe rebuilding these
 examples and the regression PDFs.
+
+## Public guide
+
+[`guide/guide.typ`](guide/guide.typ) contains the application's public guide.
+Its compiled PDF is checked in at [`web/guide.pdf`](../web/guide.pdf), and
+**Open guide** loads it through `?source=guide.pdf`.
+
+Regenerate it with Typst **0.15.1** from the repository root, using bundled fonts
+and a fixed creation timestamp:
+
+```sh
+typst compile --root . --ignore-system-fonts --creation-timestamp 0 typst/guide/guide.typ web/guide.pdf
+```
+
+The application build copies the checked-in PDF to `dist/guide.pdf`; Typst is
+needed only when editing the guide or regenerating fixtures.

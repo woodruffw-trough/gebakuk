@@ -1699,7 +1699,7 @@ const PRESENTER_HTML: &str = r#"
           <input id="file-input" type="file" accept="application/pdf,.pdf" hidden>
           <button id="file-open-button" class="file-open-button" type="button"><span class="empty-icon" aria-hidden="true">▧</span><span>Click or drop a PDF</span></button>
           <form id="pdf-url-form"><label class="sr-only" for="pdf-url-input">PDF URL</label><input id="pdf-url-input" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="Paste a PDF URL" maxlength="8192" required><button id="url-load-button" type="submit">Open</button></form>
-          <a id="sample-link" href="?source=sample.pdf">Open sample PDF</a>
+          <a id="guide-link" href="?source=guide.pdf">Open guide</a>
           <button id="loader-close-button" type="button" hidden>Cancel</button>
         </div>
       </div>

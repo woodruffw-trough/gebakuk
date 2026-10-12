@@ -51,7 +51,4 @@ if [[ "$scalar_validation" != *"SIMD support is not enabled"* ]]; then
 fi
 
 touch dist/.nojekyll
-if [[ -f fixtures/notes-right.pdf ]]; then
-  cp fixtures/notes-right.pdf dist/sample.pdf
-fi
 echo "Validated SIMD128 application built in $project_root/dist"

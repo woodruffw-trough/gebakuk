@@ -7,9 +7,42 @@ The Cargo workspace contains two crates, both forbidding unsafe project code.
 | `crates/presenter-core` | PDF metadata, geometry, attachment extraction, GIF validation, and region rasterization |
 | `crates/presenter-web` | Browser interface, navigation, window protocol, render cache, and GIF resource lifecycle |
 | `web/` | Static HTML, CSS, icon, and the minimal WASM bootstrap |
-| `typst/` | Reproducible sample sources and optional GIF helper |
+| `typst/` | Public guide source, reproducible fixture sources, and optional GIF helper |
 | `fixtures/` | Checked-in PDFs and media used by tests |
 | `scripts/build.sh` | Cargo and wasm-bindgen static packaging |
+
+## Build and serve locally
+
+Install [Rust with rustup](https://rustup.rs/). The checked-in toolchain file pins
+Rust **1.99.0**, rustfmt, Clippy, and the `wasm32-unknown-unknown` target. Run these
+commands from the repository root:
+
+```sh
+cargo install --locked wasm-bindgen-cli --version 0.2.129
+cargo install --locked wasm-tools --version 1.245.1 --no-default-features --features validate
+scripts/build.sh
+python3 -m http.server 8080 --directory dist
+```
+
+Open `http://localhost:8080`. The distribution contains `index.html`, static
+assets including the guide PDF, and generated bindings and WebAssembly in
+`pkg/`. Serve the whole `dist/` directory through HTTP or HTTPS. Relative asset
+paths support deployment beneath a repository subdirectory. Direct `file://`
+use is unsupported.
+
+Run the required checks before submitting changes:
+
+```sh
+cargo fmt --all --check
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo test --locked --workspace
+cargo clippy --locked -p presenter-web --target wasm32-unknown-unknown -- -D warnings
+scripts/build.sh
+```
+
+There is no Node.js, JavaScript package manager, bundler, framework, native PDF
+renderer, or backend. Application logic is Rust; the handwritten JavaScript only
+initializes the generated WASM module.
 
 ## Rendering
 
@@ -65,8 +98,8 @@ file into the panel uses the same loading path, whether a PDF is already open
 or not. Empty and text-only drops are ignored, and multiple files produce an
 error. Drops elsewhere are prevented from navigating the browser but do not
 load a document. File contents are validated without trusting MIME metadata.
-The PDF URL field accepts **Open** or Enter. The sample link uses
-`?source=sample.pdf` to open the sample in the presenter.
+The PDF URL field accepts **Open** or Enter. **Open guide** uses
+`?source=guide.pdf` to open the public guide in the presenter.
 
 The opener hides after a PDF loads; **Change PDF** reopens it. **Cancel** aborts
 an active download and advances the load generation so a late file read cannot
@@ -92,11 +125,24 @@ once through `URLSearchParams`; callers should encode the entire PDF URL with
 `&`, `+`, and `#` characters are preserved. The download still uses the same CORS,
 credential, referrer, size, and timeout rules.
 
-Typst **0.15.1** is used to regenerate the fifteen checked-in PDF fixtures. Two
-regeneration passes produced identical fixture bytes, and attachment tests
-verify that original GIF bytes survive export unchanged. The previous 0.14.2
-pin constrained fixture generation, not which PDFs the viewer could load.
-The GIF convention is independent of Typst versions.
+Typst **0.15.1** regenerates the fifteen checked-in PDF fixtures. Attachment tests
+verify that original GIF bytes survive export unchanged. The viewer's GIF
+convention is independent of Typst versions.
+
+## Regenerate the public guide
+
+The guide source is [`typst/guide/guide.typ`](../typst/guide/guide.typ), and its
+PDF is checked in at [`web/guide.pdf`](../web/guide.pdf). Install
+[Typst **0.15.1**](https://github.com/typst/typst/releases/tag/v0.15.1) and compile
+from the repository root using its bundled fonts and a fixed timestamp:
+
+```sh
+typst compile --root . --ignore-system-fonts --creation-timestamp 0 typst/guide/guide.typ web/guide.pdf
+```
+
+The application build copies the checked-in guide with the other web assets;
+it does not run Typst. See [fixture instructions](../fixtures/README.md) for the
+separate PDF regression fixture generator.
 
 ## Window synchronization
 
@@ -124,7 +170,7 @@ governed by browser permissions and user gestures.
 ## Static packaging
 
 Run `scripts/build.sh` after installing the exact `wasm-bindgen-cli` and
-`wasm-tools` versions in the README. It rejects mismatched tools, performs a
+`wasm-tools` versions listed above. It rejects mismatched tools, performs a
 release WASM build with the lockfile, invokes `wasm-bindgen --target web`, and
 copies the web assets into `dist/`. Release builds omit debug information;
 wasm-bindgen removes the name and producers sections.
@@ -132,15 +178,19 @@ wasm-bindgen removes the name and producers sections.
 The build validates the final WASM artifact with `wasm-tools` **1.245.1**. It also
 checks that validation with SIMD disabled fails specifically on a SIMD
 instruction, ensuring that the shipped module uses SIMD. CI installs the same
-pinned validator. The downloadable sample is copied from
-`fixtures/notes-right.pdf`. Generated assets and Cargo's `target/` are not source
-files.
+pinned validator. The public guide is copied from `web/guide.pdf` to
+`dist/guide.pdf`. Generated assets and Cargo's `target/` are not source files.
 
-The GitHub workflow performs formatting, native Clippy and tests, browser-target
-Clippy, and static packaging. Only the deployment job receives Pages write and
-OIDC permissions. Deployment follows successful checks on `main`; pull requests
-do not publish a site. To use another static host, upload `dist/` unchanged and
-serve `.wasm` as `application/wasm`.
+[GitHub Actions](../.github/workflows/ci.yml) runs the checks above for pull
+requests and `main`, then deploys successful `main` builds to GitHub Pages. Only
+the deployment job receives Pages write and OIDC permissions; official actions
+are pinned to commit SHAs. The workflow can configure Pages automatically. If
+configuration is unavailable, a repository administrator must set **Settings →
+Pages → Build and deployment → Source → GitHub Actions**, then rerun the
+workflow. The application needs no deployment credential.
+
+To use another static host, upload `dist/` unchanged and serve `.wasm` as
+`application/wasm`.
 
 Refer to [verification](verification.md) for fixture regeneration and browser
 checks, and to [AGENTS.md](../AGENTS.md) for agent-specific development rules.

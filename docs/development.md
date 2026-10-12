@@ -27,12 +27,24 @@ than allocating a full double-width page bitmap.
 Canvas sizing accounts for device pixel ratio and resource limits: the browser
 caps DPR at 2, each destination at 4 million pixels, and each side at 4,096 pixels.
 Animation rectangles are normalized within the same region, so overlays follow
-the fitted canvas during resizing. A least-recently-used raster cache holds at
-most six entries and 64 MiB; the current slide, notes, and next preview render
-on demand, without rasterizing the entire document. Resize and fullscreen redraws
-are debounced by 120 ms. PDF parsing and rasterization run on the browser's main
-thread; a complex page can pause navigation while rendering. There is no worker
-architecture in this release.
+the fitted canvas during resizing. A least-recently-used cache holds at most six
+uploaded canvases and 64 MiB of pixel data. A cache hit reuses the canvas without
+copying RGBA pixels through `ImageData` again. The next-slide preview uses the
+resolution required by the current-slide viewport, so its canvas can become the
+current slide directly.
+
+Navigation sends the audience state immediately and displays the current slide
+first. Missing notes, the next preview, and neighboring slide/notes canvases are
+prepared one task at a time after a paint opportunity. Each task yields through
+`requestAnimationFrame` followed by a timer; navigation, document replacement,
+layout changes, and resizing cancel obsolete work. An unchanged synchronization
+message updates elapsed time and connection state without redrawing the slide or
+restarting GIFs. Resize and fullscreen redraws are debounced by 120 ms.
+
+Release builds optimize for execution speed with `opt-level = 3`. No additional
+WASM CPU features are required. PDF parsing and cold rasterization still run on
+the browser's main thread; complex pages and background preparation can briefly
+block input. There is no worker architecture in this release.
 
 ## Window synchronization
 

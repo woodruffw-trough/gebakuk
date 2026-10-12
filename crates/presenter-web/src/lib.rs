@@ -9,7 +9,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::rc::Rc;
 
 use js_sys::{Array, ArrayBuffer, Object, Reflect, Uint8Array};
-use presenter_core::{Layout, MAX_FILE_BYTES, Presentation, Raster, View};
+use presenter_core::{Layout, MAX_FILE_BYTES, Presentation, View};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::{Clamped, JsCast};
 use wasm_bindgen_futures::{JsFuture, spawn_local};
@@ -38,7 +38,20 @@ struct RasterKey {
 
 struct CacheEntry {
     key: RasterKey,
-    raster: Raster,
+    canvas: HtmlCanvasElement,
+    bytes: usize,
+}
+
+struct TargetSize {
+    key: RasterKey,
+    css_width: f64,
+    css_height: f64,
+}
+
+enum DeferredRender {
+    Notes(usize),
+    Preview(usize),
+    Prefetch { page: usize, view: View },
 }
 
 struct GifListener {
@@ -65,6 +78,10 @@ struct App {
     layout: Layout,
     started_ms: f64,
     cache: VecDeque<CacheEntry>,
+    deferred: VecDeque<DeferredRender>,
+    deferred_scheduled: bool,
+    render_generation: u32,
+    rendered_state: Option<(u32, usize, Layout)>,
     gif_urls: HashMap<String, String>,
     gif_listeners: Vec<GifListener>,
     failed_gifs: HashSet<String>,
@@ -120,6 +137,10 @@ pub fn start() -> Result<(), JsValue> {
         layout: Layout::Normal,
         started_ms: js_sys::Date::now(),
         cache: VecDeque::new(),
+        deferred: VecDeque::new(),
+        deferred_scheduled: false,
+        render_generation: 0,
+        rendered_state: None,
         gif_urls: HashMap::new(),
         gif_listeners: Vec::new(),
         failed_gifs: HashSet::new(),
@@ -202,8 +223,8 @@ fn attach_events(state: &Rc<RefCell<App>>) -> Result<(), JsValue> {
                 };
                 state.layout = layout;
                 state.cache.clear();
-                state.render();
                 state.send_sync("sync");
+                state.render();
             });
         })?;
         state.listen_element("audience-button", "click", |_| with_app(App::open_audience))?;
@@ -301,6 +322,7 @@ fn schedule_resize() {
     let generation = {
         let mut state = state.borrow_mut();
         state.resize_generation = state.resize_generation.wrapping_add(1);
+        state.invalidate_render();
         state.resize_generation
     };
     let callback = Closure::once_into_js(move || {
@@ -374,6 +396,7 @@ impl App {
                 self.clear_gifs();
                 self.failed_gifs.clear();
                 self.cache.clear();
+                self.invalidate_render();
                 self.pdf = bytes;
                 self.presentation = Some(presentation);
                 self.document_id = remote_id.unwrap_or_else(|| self.document_id.wrapping_add(1));
@@ -388,7 +411,7 @@ impl App {
                     .unwrap_or_default();
                 self.status(
                     if diagnostics.is_empty() {
-                        "PDF ready. Your document stays in this browser."
+                        "PDF ready."
                     } else {
                         &diagnostics
                     },
@@ -396,10 +419,8 @@ impl App {
                 );
                 self.update_controls();
                 if !self.audience_role {
-                    self.render();
-                }
-                if !self.audience_role {
                     self.transfer_document();
+                    self.render();
                 }
             }
             Err(error) => {
@@ -425,60 +446,193 @@ impl App {
             return;
         }
         self.page = next;
-        self.render();
         self.send_sync("navigate");
+        self.render();
     }
 
     fn render(&mut self) {
+        self.invalidate_render();
         self.clear_gifs();
         if self.presentation.is_none() {
             return;
         }
-        let mut targets = vec![("current-slide", self.page, View::Audience, true)];
+        self.update_controls();
+        match self.render_target("current-slide", self.page, View::Audience, true, None) {
+            Ok(()) => self.rendered_state = Some((self.document_id, self.page, self.layout)),
+            Err(error) => self.render_error("current-slide", error),
+        }
         if !self.audience_role {
             if matches!(self.layout, Layout::NotesRight) {
-                targets.push(("notes-slide", self.page, View::Notes, true));
+                let cached = self
+                    .target_size("notes-slide", self.page, View::Notes)
+                    .is_ok_and(|size| self.cache.iter().any(|entry| entry.key == size.key));
+                if cached {
+                    if let Err(error) =
+                        self.render_target("notes-slide", self.page, View::Notes, true, None)
+                    {
+                        self.render_error("notes-slide", error);
+                    }
+                } else {
+                    self.clear_view("notes-slide");
+                    self.deferred.push_back(DeferredRender::Notes(self.page));
+                }
             } else if let Some(notes) = self.dom.get_element_by_id("notes-slide") {
                 notes.set_inner_html(
                     "<p class=\"empty-hint\">Choose “Notes on right” for double-width PDFs.</p>",
                 );
             }
-            let count = self
-                .presentation
-                .as_ref()
-                .map_or(0, Presentation::page_count);
-            if self.page + 1 < count {
-                targets.push(("next-slide", self.page + 1, View::Audience, false));
+            if self.page + 1
+                < self
+                    .presentation
+                    .as_ref()
+                    .map_or(0, Presentation::page_count)
+            {
+                self.clear_view("next-slide");
+                self.deferred
+                    .push_back(DeferredRender::Preview(self.page + 1));
             } else if let Some(next) = self.dom.get_element_by_id("next-slide") {
                 next.set_inner_html("<p class=\"empty-hint\">End of presentation</p>");
             }
         }
-        for (id, page, view, animated) in targets {
-            if let Err(error) = self.render_target(id, page, view, animated) {
-                if let Some(host) = self.dom.get_element_by_id(id) {
-                    host.set_inner_html(
-                        "<p class=\"empty-hint\">This page could not be rendered.</p>",
-                    );
+        let count = self
+            .presentation
+            .as_ref()
+            .map_or(0, Presentation::page_count);
+        if self.page + 1 < count {
+            if self.audience_role {
+                self.deferred.push_back(DeferredRender::Prefetch {
+                    page: self.page + 1,
+                    view: View::Audience,
+                });
+            } else if matches!(self.layout, Layout::NotesRight) {
+                self.deferred.push_back(DeferredRender::Prefetch {
+                    page: self.page + 1,
+                    view: View::Notes,
+                });
+            }
+        }
+        if self.page > 0 {
+            self.deferred.push_back(DeferredRender::Prefetch {
+                page: self.page - 1,
+                view: View::Audience,
+            });
+            if !self.audience_role && matches!(self.layout, Layout::NotesRight) {
+                self.deferred.push_back(DeferredRender::Prefetch {
+                    page: self.page - 1,
+                    view: View::Notes,
+                });
+            }
+        }
+        self.schedule_deferred();
+    }
+
+    fn invalidate_render(&mut self) {
+        self.render_generation = self.render_generation.wrapping_add(1);
+        self.rendered_state = None;
+        self.deferred.clear();
+    }
+
+    fn clear_view(&self, id: &str) {
+        if let Some(host) = self.dom.get_element_by_id(id) {
+            host.set_inner_html("");
+        }
+    }
+
+    fn render_error(&self, id: &str, error: String) {
+        if let Some(host) = self.dom.get_element_by_id(id) {
+            host.set_inner_html("<p class=\"empty-hint\">This page could not be rendered.</p>");
+        }
+        let error = format!("Unable to render this page: {error}");
+        self.status(&error, true);
+        if self.audience_role {
+            let message = self.message("error");
+            set(&message, "message", &JsValue::from_str(&error));
+            self.send_opener(&message);
+        }
+    }
+
+    fn schedule_deferred(&mut self) {
+        if self.deferred_scheduled || self.deferred.is_empty() {
+            return;
+        }
+        self.deferred_scheduled = true;
+        // A RAF callback runs before paint. Yield once more so rasterizing a
+        // preview or neighbor cannot delay painting the selected slide.
+        let callback = Closure::once_into_js(move |_timestamp: f64| {
+            with_app(|state| {
+                let generation = state.render_generation;
+                let callback = Closure::once_into_js(move || {
+                    with_app(|state| {
+                        state.deferred_scheduled = false;
+                        if state.render_generation == generation
+                            && let Some(task) = state.deferred.pop_front()
+                        {
+                            state.run_deferred(task);
+                        }
+                        state.schedule_deferred();
+                    });
+                });
+                if state
+                    .window
+                    .set_timeout_with_callback_and_timeout_and_arguments_0(
+                        callback.unchecked_ref(),
+                        0,
+                    )
+                    .is_err()
+                {
+                    state.deferred_scheduled = false;
                 }
-                let error = format!("Unable to render this page: {error}");
-                self.status(&error, true);
-                if self.audience_role {
-                    let message = self.message("error");
-                    set(&message, "message", &JsValue::from_str(&error));
-                    self.send_opener(&message);
+            });
+        });
+        if self
+            .window
+            .request_animation_frame(callback.unchecked_ref())
+            .is_err()
+        {
+            self.deferred_scheduled = false;
+        }
+    }
+
+    fn run_deferred(&mut self, task: DeferredRender) {
+        match task {
+            DeferredRender::Notes(page) => {
+                if let Err(error) = self.render_target("notes-slide", page, View::Notes, true, None)
+                {
+                    self.render_error("notes-slide", error);
+                }
+            }
+            DeferredRender::Preview(page) => {
+                // Render the preview at the size needed when this becomes the
+                // current slide, then reuse that same canvas on navigation.
+                let result = self
+                    .target_size("current-slide", page, View::Audience)
+                    .and_then(|size| {
+                        self.render_target(
+                            "next-slide",
+                            page,
+                            View::Audience,
+                            false,
+                            Some(size.key),
+                        )
+                    });
+                if let Err(error) = result {
+                    self.render_error("next-slide", error);
+                }
+            }
+            DeferredRender::Prefetch { page, view } => {
+                let id = if matches!(view, View::Notes) {
+                    "notes-slide"
+                } else {
+                    "current-slide"
+                };
+                if let Ok(size) = self.target_size(id, page, view) {
+                    let _ = self.cached_canvas(size.key);
                 }
             }
         }
-        self.update_controls();
     }
 
-    fn render_target(
-        &mut self,
-        id: &str,
-        page: usize,
-        view: View,
-        animated: bool,
-    ) -> Result<(), String> {
+    fn target_size(&self, id: &str, page: usize, view: View) -> Result<TargetSize, String> {
         let host = self
             .dom
             .get_element_by_id(id)
@@ -511,16 +665,89 @@ impl App {
             width: pixel_width as u32,
             height: pixel_height as u32,
         };
-        let entry = if let Some(index) = self.cache.iter().position(|entry| entry.key == key) {
-            self.cache.remove(index).ok_or("Render cache error")?
+        Ok(TargetSize {
+            key,
+            css_width,
+            css_height,
+        })
+    }
+
+    fn cached_canvas(&mut self, key: RasterKey) -> Result<HtmlCanvasElement, String> {
+        if let Some(index) = self.cache.iter().position(|entry| entry.key == key) {
+            let entry = self.cache.remove(index).ok_or("Render cache error")?;
+            let canvas = entry.canvas.clone();
+            self.cache.push_front(entry);
+            return Ok(canvas);
+        }
+        let view = if key.notes {
+            View::Notes
         } else {
-            CacheEntry {
-                key,
-                raster: pdf
-                    .render(page, self.layout, view, key.width, key.height)
-                    .map_err(|error| error.to_string())?,
-            }
+            View::Audience
         };
+        let layout = if key.notes_right {
+            Layout::NotesRight
+        } else {
+            Layout::Normal
+        };
+        let raster = self
+            .presentation
+            .as_ref()
+            .ok_or("No PDF")?
+            .render(key.page, layout, view, key.width, key.height)
+            .map_err(|error| error.to_string())?;
+        let canvas = self
+            .dom
+            .create_element("canvas")
+            .map_err(js_error)?
+            .dyn_into::<HtmlCanvasElement>()
+            .map_err(|_| "Invalid canvas")?;
+        canvas.set_width(raster.width);
+        canvas.set_height(raster.height);
+        canvas
+            .set_attribute("aria-label", &format!("Slide {}", key.page + 1))
+            .map_err(js_error)?;
+        let context = canvas
+            .get_context("2d")
+            .map_err(js_error)?
+            .ok_or("Canvas is unavailable")?
+            .dyn_into::<web_sys::CanvasRenderingContext2d>()
+            .map_err(|_| "Invalid canvas context")?;
+        let pixels = web_sys::ImageData::new_with_u8_clamped_array_and_sh(
+            Clamped(&raster.rgba),
+            raster.width,
+            raster.height,
+        )
+        .map_err(js_error)?;
+        context
+            .put_image_data(&pixels, 0.0, 0.0)
+            .map_err(js_error)?;
+        self.cache.push_front(CacheEntry {
+            key,
+            canvas: canvas.clone(),
+            bytes: raster.rgba.len(),
+        });
+        while self.cache.len() > CACHE_ENTRIES
+            || self.cache.iter().map(|entry| entry.bytes).sum::<usize>() > CACHE_BYTES
+        {
+            self.cache.pop_back();
+        }
+        Ok(canvas)
+    }
+
+    fn render_target(
+        &mut self,
+        id: &str,
+        page: usize,
+        view: View,
+        animated: bool,
+        render_key: Option<RasterKey>,
+    ) -> Result<(), String> {
+        let size = self.target_size(id, page, view)?;
+        let canvas = self.cached_canvas(render_key.unwrap_or(size.key))?;
+        let host = self
+            .dom
+            .get_element_by_id(id)
+            .ok_or("Missing slide viewport")?;
         host.set_inner_html("");
         let surface = self
             .dom
@@ -531,40 +758,15 @@ impl App {
         surface.set_class_name("slide-surface");
         surface
             .style()
-            .set_property("width", &format!("{css_width}px"))
+            .set_property("width", &format!("{}px", size.css_width))
             .map_err(js_error)?;
         surface
             .style()
-            .set_property("height", &format!("{css_height}px"))
-            .map_err(js_error)?;
-        let canvas = self
-            .dom
-            .create_element("canvas")
-            .map_err(js_error)?
-            .dyn_into::<HtmlCanvasElement>()
-            .map_err(|_| "Invalid canvas")?;
-        canvas.set_width(entry.raster.width);
-        canvas.set_height(entry.raster.height);
-        canvas
-            .set_attribute("aria-label", &format!("Slide {}", page + 1))
-            .map_err(js_error)?;
-        let context = canvas
-            .get_context("2d")
-            .map_err(js_error)?
-            .ok_or("Canvas is unavailable")?
-            .dyn_into::<web_sys::CanvasRenderingContext2d>()
-            .map_err(|_| "Invalid canvas context")?;
-        let pixels = web_sys::ImageData::new_with_u8_clamped_array_and_sh(
-            Clamped(&entry.raster.rgba),
-            entry.raster.width,
-            entry.raster.height,
-        )
-        .map_err(js_error)?;
-        context
-            .put_image_data(&pixels, 0.0, 0.0)
+            .set_property("height", &format!("{}px", size.css_height))
             .map_err(js_error)?;
         surface.append_child(&canvas).map_err(js_error)?;
         if animated {
+            let pdf = self.presentation.as_ref().ok_or("No PDF")?;
             for overlay in pdf.animations(page, self.layout, view) {
                 if self.failed_gifs.contains(&overlay.attachment_id) {
                     continue;
@@ -625,17 +827,6 @@ impl App {
             }
         }
         host.append_child(&surface).map_err(js_error)?;
-        self.cache.push_front(entry);
-        while self.cache.len() > CACHE_ENTRIES
-            || self
-                .cache
-                .iter()
-                .map(|entry| entry.raster.rgba.len())
-                .sum::<usize>()
-                > CACHE_BYTES
-        {
-            self.cache.pop_back();
-        }
         Ok(())
     }
 
@@ -810,10 +1001,7 @@ impl App {
                 self.audience = Some(window);
                 self.sent_document = None;
                 self.audience_instance = None;
-                self.status(
-                    "Audience window opened. Move it to your projector and enter fullscreen.",
-                    false,
-                );
+                self.status("Audience window opened.", false);
             }
             _ => self.status(
                 "The browser blocked the audience window. Allow popups and try again.",
@@ -987,6 +1175,7 @@ impl App {
                 }
             }
             "reset" => {
+                self.invalidate_render();
                 self.clear_gifs();
                 self.failed_gifs.clear();
                 self.cache.clear();
@@ -1026,7 +1215,11 @@ impl App {
         }
         self.connected = true;
         self.status("", false);
-        self.render();
+        if self.rendered_state != Some((self.document_id, self.page, self.layout)) {
+            self.render();
+        } else {
+            self.update_controls();
+        }
     }
 }
 
@@ -1060,16 +1253,16 @@ fn js_error(error: JsValue) -> String {
 const PRESENTER_HTML: &str = r#"
 <div class="presenter-shell">
   <header class="toolbar">
-    <div class="brand"><span class="brand-mark" aria-hidden="true">▣</span><div><h1>Gebakuk</h1><p>Local slides. A clear view.</p></div></div>
+    <div class="brand"><span class="brand-mark" aria-hidden="true">▣</span><h1>Gebakuk</h1></div>
     <label class="file-button">Open PDF<input id="file-input" type="file" accept="application/pdf,.pdf"></label>
     <label class="layout-control">Page layout<select id="layout-select"><option value="normal">Normal slides</option><option value="notes-right">Notes on right</option></select></label>
     <button id="audience-button" class="primary-button" type="button">Open audience ↗</button>
   </header>
-  <div id="status" class="status" role="status" aria-live="polite">Open a PDF to begin. Everything runs locally in your browser.</div>
+  <div id="status" class="status" role="status" aria-live="polite"></div>
   <div class="presenter-grid">
-    <section class="viewer-panel current-panel"><div class="panel-heading"><h2>Current slide</h2><span id="slide-count">— / —</span></div><div id="current-slide" class="slide-viewport" tabindex="0"><div class="empty-hint empty-state"><span class="empty-icon" aria-hidden="true">▧</span><p>Your presentation starts here</p><small>Choose a PDF, then select its page layout.</small><a href="./sample.pdf" download>Download the sample PDF</a></div></div></section>
+    <section class="viewer-panel current-panel"><div class="panel-heading"><h2>Current slide</h2><span id="slide-count">— / —</span></div><div id="current-slide" class="slide-viewport" tabindex="0"><div class="empty-hint empty-state"><span class="empty-icon" aria-hidden="true">▧</span><p>Open a PDF</p><a href="./sample.pdf" download>Download the sample PDF</a></div></div></section>
     <section class="viewer-panel notes-panel"><div class="panel-heading"><h2>Speaker notes</h2><span>Presenter only</span></div><div id="notes-slide" class="slide-viewport"><p class="empty-hint">Choose “Notes on right” for double-width PDFs.</p></div></section>
-    <section class="viewer-panel next-panel"><div class="panel-heading"><h2>Up next</h2></div><div id="next-slide" class="slide-viewport"><p class="empty-hint">Next slide preview</p></div></section>
+    <section class="viewer-panel next-panel"><div class="panel-heading"><h2>Next slide</h2></div><div id="next-slide" class="slide-viewport"></div></section>
   </div>
   <footer class="presentation-controls"><div class="navigation"><button id="previous-button" type="button" aria-label="Previous slide">← Previous</button><button id="next-button" type="button">Next →</button><span class="keyboard-hint">← → or Space</span></div><div class="timer"><span>Elapsed</span><output id="elapsed">00:00:00</output><button id="reset-timer-button" type="button" aria-label="Reset elapsed timer">Reset</button></div><button id="fullscreen-button" type="button">Fullscreen ⛶</button></footer>
 </div>"#;

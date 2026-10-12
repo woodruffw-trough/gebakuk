@@ -30,7 +30,7 @@ is validated before it changes the interface.
 | Combined GIF attachment bytes | 32 MiB |
 | Core raster API | 8,000,000 pixels; at most 8,192 on either side |
 | Browser canvas | 4,000,000 pixels; at most 4,096 on either side; DPR at most 2 |
-| Raster cache per window | Six entries and 64 MiB |
+| Uploaded canvas cache per window | Six entries and 64 MiB of pixel data |
 | GIF logical canvas | 16,000,000 pixels; at most 8,192 on either side |
 | GIF frames | 2,000 |
 | Combined decoded GIF frame canvases across unique attachments | 128,000,000 pixels |

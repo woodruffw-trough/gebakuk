@@ -91,6 +91,48 @@ fn typst_attachment_is_recovered_exactly_and_rectangle_is_aligned() {
 }
 
 #[test]
+fn simple_typst_gifs_reuse_attachments_and_preserve_the_static_first_frame() {
+    let doc = load("simple-gif.pdf");
+    assert_eq!(doc.page_count(), 3);
+    assert_eq!(doc.detected_layout(), Layout::Normal);
+    assert!(doc.diagnostics().is_empty(), "{:?}", doc.diagnostics());
+    for (id, asset) in [
+        ("gebakuk-gif-0", "assets/orbit.gif"),
+        ("gebakuk-gif-1", "assets/pulse.gif"),
+    ] {
+        assert_eq!(doc.attachment(id).unwrap().bytes, fixture(asset));
+    }
+    for (page, expected) in [
+        (0, vec!["gebakuk-gif-0"]),
+        (1, vec!["gebakuk-gif-0", "gebakuk-gif-1"]),
+        (2, vec!["gebakuk-gif-0", "gebakuk-gif-1"]),
+    ] {
+        let overlays = doc.animations(page, Layout::Normal, View::Audience);
+        let ids: Vec<_> = overlays
+            .iter()
+            .map(|overlay| overlay.attachment_id.as_str())
+            .collect();
+        assert_eq!(ids, expected);
+    }
+    let first = &doc.animations(0, Layout::Normal, View::Audience)[0];
+    close(first.rect.x, 40.0 / 640.0);
+    close(first.rect.y, 60.0 / 360.0);
+    close(first.rect.width, 320.0 / 640.0);
+    close(first.rect.height, 180.0 / 360.0);
+
+    let raster = doc
+        .render(0, Layout::Normal, View::Audience, 640, 360)
+        .unwrap();
+    let poster = load("single-gif.pdf")
+        .render(0, Layout::Normal, View::Audience, 640, 360)
+        .unwrap();
+    assert!(
+        raster.rgba == poster.rgba,
+        "The GIF's first frame differs from its original PNG poster"
+    );
+}
+
+#[test]
 fn notes_regions_multiple_gifs_and_attachment_reuse() {
     let doc = load("notes-right.pdf");
     assert_eq!(doc.page_count(), 3);

@@ -286,3 +286,24 @@ source URL and rendered downloaded bytes using request interception. All
 **27 native Rust tests**, formatting, native/WASM Clippy, and the optimized
 SIMD128 build pass. The packaged guide matches `web/guide.pdf`; `sample.pdf`
 is no longer packaged. Safari and Firefox were not exercised for this update.
+
+## One-call Typst GIF helper
+
+Typst **0.15.1** supports GIF first-frame images. The new `gif(path(...), width:
+...)` helper embeds the original file once, assigns its ID, and creates the
+marker around that first frame. Caller-relative paths and normalized aliases
+reuse the same attachment; non-GIF images fail compilation. The lower-level
+helpers remain available.
+
+The new three-page fixture verifies two GIFs reused across pages, original byte
+integrity, correct placement, and exact raster equality with the existing PNG
+poster. All **28 native Rust tests**, formatting, native/WASM Clippy, and the
+optimized SIMD128 build pass. All sixteen fixtures regenerate identically;
+the fifteen previous PDFs are unchanged. The updated eight-page guide also
+rebuilds identically.
+
+Chromium **154.0.8037.57** verified all guide pages and the new fixture in both
+windows. GIFs animate at their annotated rectangles; browser Blob hashes match
+the originals. Navigation reuses the attachments, and replacement releases all
+GIF URLs. No page errors or downloads were observed. Safari and Firefox were
+not exercised for this update.

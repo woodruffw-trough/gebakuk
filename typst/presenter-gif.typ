@@ -1,6 +1,4 @@
-// Each ID maps to one root-level PDF attachment named exactly `<id>.gif`.
-// Pass read("path/to/original.gif", encoding: none) from the calling document to avoid
-// resolving source paths relative to this imported helper.
+// Low-level helpers retained for existing presentations and explicit IDs.
 #let valid-id(id) = {
   assert(type(id) == str, message: "GIF ID must be a string")
   assert(id.len() >= 1 and id.len() <= 128, message: "GIF ID must have 1–128 characters")
@@ -21,4 +19,20 @@
 #let gif-frame(id, body) = {
   valid-id(id)
   link("https://presenter.invalid/gif/v1/" + id, body)
+}
+
+// path(...) resolves the file beside the caller, even when this helper is elsewhere.
+// Typst draws the GIF's first frame; Gebakuk overlays its original animation.
+#let gif-files = state("gebakuk/gif-files/v1", ())
+#let gif(source, ..args) = context {
+  assert(type(source) == path,
+    message: "Pass path(\"animation.gif\") to gif")
+  let files = gif-files.get()
+  let index = files.position(file => file == source)
+  if index == none {
+    index = files.len()
+    attach-gif("gebakuk-gif-" + str(index), read(source, encoding: none))
+    gif-files.update(files => files + (source,))
+  }
+  gif-frame("gebakuk-gif-" + str(index), image(source, format: "gif", ..args))
 }

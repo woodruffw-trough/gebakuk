@@ -113,6 +113,11 @@ the displayed slide is inert and hidden from assistive technology. The opener
 is presenter-only. A loaded slide does not open a file picker on a single click;
 double-click still toggles fullscreen.
 
+Presenter status messages occupy a fixed-height region in the toolbar, so loading,
+errors, and diagnostics do not move the slide panels. Long messages wrap and
+scroll. The region enters the Tab order when it has content; navigation shortcuts
+leave its scroll keys alone.
+
 Local files and URL downloads use the same core parsing and size limits. URL
 loading runs in Rust through browser Fetch APIs, accepts HTTP/HTTPS URLs, and
 resolves relative URLs against the application address. Requests use CORS mode,
@@ -191,6 +196,13 @@ are pinned to commit SHAs. The workflow can configure Pages automatically. If
 configuration is unavailable, a repository administrator must set **Settings →
 Pages → Build and deployment → Source → GitHub Actions**, then rerun the
 workflow. The application needs no deployment credential.
+
+CI restores separate caches for pinned WASM tool binaries and Cargo registry,
+Git dependencies, and build outputs. Keys include the runner platform, toolchain,
+build configuration, lockfile, and Rust sources as appropriate. Missing tools are
+compiled and their versions are checked on every run. Pull requests can restore
+default-branch caches; successful `main` builds populate them. The distribution
+is rebuilt and validated on every run.
 
 To use another static host, upload `dist/` unchanged and serve `.wasm` as
 `application/wasm`.

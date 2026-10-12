@@ -25,6 +25,29 @@ jobs:
           persist-credentials: false
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.99.0 --profile minimal --component rustfmt,clippy --target wasm32-unknown-unknown
+      - name: Restore pinned WASM tools
+        id: tools-cache
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            ~/.cargo/bin/wasm-bindgen
+            ~/.cargo/bin/wasm-tools
+          key: wasm-tools-v1-ubuntu24.04-${{ runner.os }}-${{ runner.arch }}-rust1.99.0-bindgen0.2.129-validator1.245.1-validate-${{ hashFiles('rust-toolchain.toml') }}
+      - name: Restore Cargo dependencies and build outputs
+        id: cargo-cache
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/registry/src
+            ~/.cargo/git/db
+            ~/.cargo/git/checkouts
+            target
+          key: cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.toml', 'crates/**/Cargo.toml', '.cargo/config.toml', '.github/workflows/ci.yml') }}-${{ hashFiles('Cargo.lock') }}-${{ hashFiles('crates/**/*.rs') }}
+          restore-keys: |
+            cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.toml', 'crates/**/Cargo.toml', '.cargo/config.toml', '.github/workflows/ci.yml') }}-${{ hashFiles('Cargo.lock') }}-
+            cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.toml', 'crates/**/Cargo.toml', '.cargo/config.toml', '.github/workflows/ci.yml') }}-
       - name: Check formatting
         run: cargo fmt --all --check
       - name: Check native lint and compilation
@@ -34,9 +57,15 @@ jobs:
       - name: Check browser lint and compilation
         run: cargo clippy --locked -p presenter-web --target wasm32-unknown-unknown -- -D warnings
       - name: Install matching WASM bindings generator
-        run: cargo install --locked wasm-bindgen-cli --version 0.2.129
+        run: |
+          if [[ "$(wasm-bindgen --version 2>/dev/null || true)" != "wasm-bindgen 0.2.129" ]]; then
+            cargo install --locked --force wasm-bindgen-cli --version 0.2.129
+          fi
       - name: Install pinned WASM validator
-        run: cargo install --locked wasm-tools --version 1.245.1 --no-default-features --features validate
+        run: |
+          if [[ "$(wasm-tools --version 2>/dev/null || true)" != "wasm-tools 1.245.1" ]]; then
+            cargo install --locked --force wasm-tools --version 1.245.1 --no-default-features --features validate
+          fi
       - name: Build and validate SIMD128 distribution
         run: scripts/build.sh
       - name: Package Pages site
@@ -45,6 +74,27 @@ jobs:
         with:
           path: dist
           retention-days: 7
+      # PRs restore default-branch caches; only successful main builds populate them.
+      - name: Save pinned WASM tools
+        if: success() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && steps.tools-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            ~/.cargo/bin/wasm-bindgen
+            ~/.cargo/bin/wasm-tools
+          key: ${{ steps.tools-cache.outputs.cache-primary-key }}
+      - name: Save Cargo dependencies and build outputs
+        if: success() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && steps.cargo-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/registry/src
+            ~/.cargo/git/db
+            ~/.cargo/git/checkouts
+            target
+          key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
 
   deploy:
     name: Deploy GitHub Pages

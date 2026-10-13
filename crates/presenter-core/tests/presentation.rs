@@ -14,6 +14,91 @@ fn fixture(name: &str) -> Vec<u8> {
 fn load(name: &str) -> Presentation {
     Presentation::load(fixture(name)).unwrap()
 }
+
+#[derive(Clone, Copy, Debug)]
+enum PdfVariant {
+    TranslatedOrigin,
+    Cropped,
+    Rotated,
+    InconsistentPages,
+    RotatedGif,
+    NestedNameTree,
+    DuplicateIdentifiers,
+}
+
+fn load_variant(variant: PdfVariant) -> Presentation {
+    let base = match variant {
+        PdfVariant::TranslatedOrigin
+        | PdfVariant::Cropped
+        | PdfVariant::Rotated
+        | PdfVariant::InconsistentPages => "plain.pdf",
+        PdfVariant::RotatedGif | PdfVariant::NestedNameTree | PdfVariant::DuplicateIdentifiers => {
+            "single-gif.pdf"
+        }
+    };
+    let mut document = Document::load_mem(&fixture(base)).unwrap();
+    let pages: Vec<_> = document.page_iter().collect();
+    match variant {
+        PdfVariant::TranslatedOrigin => {
+            for page in pages {
+                // Preserve the original instructions and numeric precision.
+                let mut content = b"q\n1 0 0 1 40 25 cm\n".to_vec();
+                content.extend(document.get_page_content(page));
+                content.extend_from_slice(b"\nQ\n");
+                let stream = document.add_object(Stream::new(dictionary! {}, content));
+                let page = document.get_dictionary_mut(page).unwrap();
+                page.set("Contents", stream);
+                let bounds: Vec<Object> = [40, 25, 680, 385].map(Object::from).to_vec();
+                page.set("MediaBox", bounds.clone());
+                page.set("CropBox", bounds);
+            }
+        }
+        PdfVariant::Cropped => {
+            for page in pages {
+                document
+                    .get_dictionary_mut(page)
+                    .unwrap()
+                    .set("CropBox", [40, 25, 600, 335].map(Object::from).to_vec());
+            }
+        }
+        PdfVariant::Rotated | PdfVariant::RotatedGif => {
+            let page = if matches!(variant, PdfVariant::RotatedGif) {
+                pages[0]
+            } else {
+                pages[1]
+            };
+            document.get_dictionary_mut(page).unwrap().set("Rotate", 90);
+        }
+        PdfVariant::InconsistentPages => {
+            document
+                .get_dictionary_mut(pages[1])
+                .unwrap()
+                .set("CropBox", [0, 0, 600, 300].map(Object::from).to_vec());
+        }
+        PdfVariant::NestedNameTree | PdfVariant::DuplicateIdentifiers => {
+            let mut names = document
+                .get_dict_in_dict(document.catalog().unwrap(), b"Names")
+                .unwrap()
+                .clone();
+            let mut embedded = document
+                .get_dict_in_dict(&names, b"EmbeddedFiles")
+                .unwrap()
+                .clone();
+            if matches!(variant, PdfVariant::NestedNameTree) {
+                let child = document.add_object(embedded);
+                embedded = dictionary! { "Kids" => vec![Object::Reference(child)] };
+            } else {
+                let entries = embedded.get_mut(b"Names").unwrap().as_array_mut().unwrap();
+                let duplicate = entries[..2].to_vec();
+                entries.extend(duplicate);
+            }
+            names.set("EmbeddedFiles", embedded);
+            document.catalog_mut().unwrap().set("Names", names);
+        }
+    }
+    Presentation::load(write_pdf(document)).unwrap()
+}
+
 fn close(a: f64, b: f64) {
     assert!((a - b).abs() < 0.001, "{a} differs from {b}");
 }
@@ -24,15 +109,20 @@ fn fixture_layout_detection() {
         load("notes-right.pdf").detected_layout(),
         Layout::NotesRight
     );
-    for name in [
-        "plain.pdf",
-        "single-gif.pdf",
-        "nonzero-origin.pdf",
-        "cropbox.pdf",
-        "rotated.pdf",
-        "inconsistent-pages.pdf",
-    ] {
+    for name in ["plain.pdf", "single-gif.pdf"] {
         assert_eq!(load(name).detected_layout(), Layout::Normal, "{name}");
+    }
+    for variant in [
+        PdfVariant::TranslatedOrigin,
+        PdfVariant::Cropped,
+        PdfVariant::Rotated,
+        PdfVariant::InconsistentPages,
+    ] {
+        assert_eq!(
+            load_variant(variant).detected_layout(),
+            Layout::Normal,
+            "{variant:?}"
+        );
     }
 }
 
@@ -73,8 +163,10 @@ fn layout_detection_uses_inherited_cropbox_after_rotation() {
 
 #[test]
 fn typst_attachment_is_recovered_exactly_and_rectangle_is_aligned() {
-    for name in ["single-gif.pdf", "nested-name-tree.pdf"] {
-        let doc = load(name);
+    for doc in [
+        load("single-gif.pdf"),
+        load_variant(PdfVariant::NestedNameTree),
+    ] {
         assert_eq!(
             doc.attachment("orbit").unwrap().bytes,
             fixture("assets/orbit.gif")
@@ -180,13 +272,28 @@ fn notes_regions_multiple_gifs_and_attachment_reuse() {
 
 #[test]
 fn malformed_missing_duplicate_animations_have_static_fallback() {
-    for (name, diagnostic) in [
-        ("missing-attachment.pdf", "missing"),
-        ("malformed-marker.pdf", "Malformed"),
-        ("duplicate-identifiers.pdf", "Duplicate"),
-        ("rotated-gif.pdf", "rotated"),
+    for (name, doc, diagnostic) in [
+        (
+            "missing attachment",
+            load("missing-attachment.pdf"),
+            "missing",
+        ),
+        (
+            "malformed marker",
+            load("malformed-marker.pdf"),
+            "Malformed",
+        ),
+        (
+            "duplicate identifiers",
+            load_variant(PdfVariant::DuplicateIdentifiers),
+            "Duplicate",
+        ),
+        (
+            "rotated animation",
+            load_variant(PdfVariant::RotatedGif),
+            "rotated",
+        ),
     ] {
-        let doc = load(name);
         assert!(
             doc.animations(0, Layout::Normal, View::Audience).is_empty(),
             "{name}"
@@ -204,7 +311,7 @@ fn malformed_missing_duplicate_animations_have_static_fallback() {
         assert_eq!(raster.rgba.len(), 160 * 90 * 4);
     }
     assert!(
-        load("duplicate-identifiers.pdf")
+        load_variant(PdfVariant::DuplicateIdentifiers)
             .attachment("orbit")
             .is_none()
     );
@@ -541,13 +648,30 @@ fn ambiguous_transparent_posters_keep_static_pdf_artwork() {
 
 #[test]
 fn plain_origin_crop_rotation_inconsistent_and_large_pdfs() {
-    for (name, page, width, height) in [
-        ("plain.pdf", 0, 640.0, 360.0),
-        ("nonzero-origin.pdf", 0, 640.0, 360.0),
-        ("cropbox.pdf", 0, 560.0, 310.0),
-        ("rotated.pdf", 1, 360.0, 640.0),
+    for (name, doc, page, width, height) in [
+        ("plain", load("plain.pdf"), 0, 640.0, 360.0),
+        (
+            "translated origin",
+            load_variant(PdfVariant::TranslatedOrigin),
+            0,
+            640.0,
+            360.0,
+        ),
+        (
+            "cropped",
+            load_variant(PdfVariant::Cropped),
+            0,
+            560.0,
+            310.0,
+        ),
+        (
+            "rotated",
+            load_variant(PdfVariant::Rotated),
+            1,
+            360.0,
+            640.0,
+        ),
     ] {
-        let doc = load(name);
         close(doc.page(page).unwrap().width, width);
         close(doc.page(page).unwrap().height, height);
         let raster = doc
@@ -560,15 +684,32 @@ fn plain_origin_crop_rotation_inconsistent_and_large_pdfs() {
                 .as_chunks::<4>()
                 .0
                 .iter()
-                .any(|pixel| pixel[..3] != [255, 255, 255])
+                .any(|pixel| pixel[..3] != [255, 255, 255]),
+            "{name} should retain visible page content"
         );
     }
     assert!(
-        load("inconsistent-pages.pdf")
+        load_variant(PdfVariant::InconsistentPages)
             .diagnostics()
             .iter()
             .any(|message| message.starts_with("Page dimensions vary"))
     );
+    let original = load("plain.pdf");
+    let translated = load_variant(PdfVariant::TranslatedOrigin);
+    for page in 0..original.page_count() {
+        assert_eq!(
+            translated
+                .render(page, Layout::Normal, View::Audience, 160, 90)
+                .unwrap()
+                .rgba,
+            original
+                .render(page, Layout::Normal, View::Audience, 160, 90)
+                .unwrap()
+                .rgba,
+            "Translating page boxes and content must preserve page {} pixels",
+            page + 1
+        );
+    }
     let large = load("large.pdf");
     assert_eq!(large.page_count(), 120);
     assert!(

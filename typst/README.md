@@ -26,7 +26,6 @@ how transparent playback preserves the PDF background.
 
 [simple-gif.typ](simple-gif.typ) demonstrates automatic IDs, reuse, and paths
 relative to the calling document.
-[normal.typ](normal.typ) is a fixture deck with one slide per 640 × 360 pt page.
 [notes-right.typ](notes-right.typ) is a fixture deck with 1280 × 360 pt pages whose
 left half is the slide and right half is notes. Speaker notes remain readable
 in the original PDF.

@@ -3,11 +3,12 @@
 Run the repository checks with the pinned Rust toolchain:
 
 ```sh
+cargo xtask install-tools
 cargo fmt --all --check
 cargo clippy --locked --workspace --all-targets -- -D warnings
 cargo test --locked --workspace
 cargo clippy --locked -p presenter-web --target wasm32-unknown-unknown -- -D warnings
-scripts/build.sh
+cargo xtask build
 ```
 
 Native tests cover coordinate origins and rotation, page-region splitting,
@@ -49,8 +50,9 @@ Serve `dist/` through HTTP and exercise the following in a current desktop brows
    exit, then repeat; check its label, canvas sharpness, clipping, and GIF
    alignment. Check slide double-click toggling and external fullscreen exit.
 5. Display single, multiple, and reused GIFs. Confirm playback and removal on
-   navigation. Open the transparent GIF fixture and confirm its diagnostic and
-   static fallback.
+   navigation. Open the transparent GIF fixtures and check moving shapes over
+   the PDF background, background/previous disposal, and static previews.
+   Simulate a decode failure and confirm only that GIF returns to its poster.
 6. Close and reopen the audience window. Replace the PDF while it is open, and
    close the presenter to check the audience's disconnected state.
 7. Open malformed marker and missing attachment fixtures and confirm the static
@@ -368,3 +370,19 @@ partial-frame background disposal, and previous disposal restoring cyan after
 magenta while retaining a new purple shape. Static previews, navigation, resizing,
 normal/notes layout changes, and independent decode-failure fallback passed.
 Safari and Firefox were not exercised for this update.
+
+## Build and workflow maintenance
+
+`cargo xtask build` replaces the shell build script. All ten distribution files
+match the preceding build byte-for-byte, including the optimized SIMD128 module.
+The bindings CLI version comes from `Cargo.lock`; warm, missing, mismatched, and
+failed tool installations were checked. All **45 native Rust tests**, formatting,
+native/WASM Clippy, and the packaged SIMD validation pass.
+
+Actionlint **1.7.12** validates the workflow. Zizmor **1.30.1** finds no issues in
+the pedantic scan of `.github`; an intentionally unpinned action fails with a
+nonzero exit code. Pages requires both Rust/build and workflow-security jobs.
+All action commit pins have matching full release-version comments. Dependabot
+checks Cargo and GitHub Actions weekly with a seven-day version-update cooldown.
+Application code and the public guide are unchanged; browser checks were not
+repeated for this packaging update.

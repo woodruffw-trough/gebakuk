@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/presenter-core", "crates/presenter-web"]
+members = ["crates/presenter-core", "crates/presenter-web", "xtask"]
 resolver = "2"
 
 [workspace.package]

@@ -10,6 +10,6 @@ Use bounded allocations and validate inter-window message origin and source.
 
 Before submitting changes, run `cargo fmt --all --check`,
 `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`,
-and `scripts/build.sh`. Add meaningful regression coverage when changing PDF
+and `cargo xtask build`. Add meaningful regression coverage when changing PDF
 geometry, attachment extraction, or window synchronization. Never claim browser
 coverage for browsers that were not exercised.

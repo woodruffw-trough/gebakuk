@@ -1,6 +1,6 @@
 # Architecture and development
 
-The Cargo workspace contains two crates, both forbidding unsafe project code.
+The Cargo workspace contains three crates, all forbidding unsafe project code.
 
 | Location | Responsibility |
 | --- | --- |
@@ -9,7 +9,7 @@ The Cargo workspace contains two crates, both forbidding unsafe project code.
 | `web/` | Static HTML, CSS, icon, and the minimal WASM bootstrap |
 | `typst/` | Public guide source, reproducible fixture sources, and optional GIF helper |
 | `fixtures/` | Checked-in PDFs and media used by tests |
-| `scripts/build.sh` | Cargo and wasm-bindgen static packaging |
+| `xtask/` | Native build-tool installation, static packaging, and WASM validation |
 
 ## Build and serve locally
 
@@ -18,9 +18,8 @@ Rust **1.99.0**, rustfmt, Clippy, and the `wasm32-unknown-unknown` target. Run t
 commands from the repository root:
 
 ```sh
-cargo install --locked wasm-bindgen-cli --version 0.2.129
-cargo install --locked wasm-tools --version 1.245.1 --no-default-features --features validate
-scripts/build.sh
+cargo xtask install-tools
+cargo xtask build
 python3 -m http.server 8080 --directory dist
 ```
 
@@ -37,7 +36,7 @@ cargo fmt --all --check
 cargo clippy --locked --workspace --all-targets -- -D warnings
 cargo test --locked --workspace
 cargo clippy --locked -p presenter-web --target wasm32-unknown-unknown -- -D warnings
-scripts/build.sh
+cargo xtask build
 ```
 
 There is no Node.js, JavaScript package manager, bundler, framework, native PDF
@@ -186,32 +185,44 @@ governed by browser permissions and user gestures.
 
 ## Static packaging
 
-Run `scripts/build.sh` after installing the exact `wasm-bindgen-cli` and
-`wasm-tools` versions listed above. It rejects mismatched tools, performs a
-release WASM build with the lockfile, invokes `wasm-bindgen --target web`, and
-copies the web assets into `dist/`. Release builds omit debug information;
-wasm-bindgen removes the name and producers sections.
+`cargo xtask` runs the native `xtask` workspace crate through a Cargo alias.
+Run `cargo xtask install-tools` to install missing tools or replace mismatched
+versions.
+It resolves the `wasm-bindgen-cli` version from `Cargo.lock` and the `wasm-tools`
+version from the pin in [`xtask/Cargo.toml`](../xtask/Cargo.toml).
 
-The build validates the final WASM artifact with `wasm-tools` **1.245.1**. It also
+`cargo xtask build` checks those versions, performs a release WASM build with the
+lockfile, invokes `wasm-bindgen --target web`, and copies the web assets into
+`dist/`. Release builds omit debug information; wasm-bindgen removes the name and
+producers sections.
+
+The build validates the final WASM artifact with the pinned `wasm-tools`. It also
 checks that validation with SIMD disabled fails specifically on a SIMD
 instruction, ensuring that the shipped module uses SIMD. CI installs the same
 pinned validator. The public guide is copied from `web/guide.pdf` to
 `dist/guide.pdf`. Generated assets and Cargo's `target/` are not source files.
 
 [GitHub Actions](../.github/workflows/ci.yml) runs the checks above for pull
-requests and `main`, then deploys successful `main` builds to GitHub Pages. Only
-the deployment job receives Pages write and OIDC permissions; official actions
-are pinned to commit SHAs. The workflow can configure Pages automatically. If
-configuration is unavailable, a repository administrator must set **Settings →
-Pages → Build and deployment → Source → GitHub Actions**, then rerun the
-workflow. The application needs no deployment credential.
+requests and `main`. Its workflow-security job runs the pinned zizmor action with
+the pedantic audit profile; deployment requires both that job and the Rust/build
+job to succeed. Successful `main` builds deploy to GitHub Pages. Only the
+deployment job receives Pages write and OIDC permissions; actions are pinned to
+commit SHAs with full version comments. The workflow can configure Pages
+automatically. If configuration is unavailable, a repository administrator must
+set **Settings → Pages → Build and deployment → Source → GitHub Actions**, then
+rerun the workflow. The application needs no deployment credential.
 
 CI restores separate caches for pinned WASM tool binaries and Cargo registry,
 Git dependencies, and build outputs. Keys include the runner platform, toolchain,
-build configuration, lockfile, and Rust sources as appropriate. Missing tools are
-compiled and their versions are checked on every run. Pull requests can restore
-default-branch caches; successful `main` builds populate them. The distribution
-is rebuilt and validated on every run.
+build configuration, lockfile, and Rust sources as appropriate. Missing or
+mismatched tools are compiled and their versions are checked on every run. Pull
+requests can restore default-branch caches; successful `main` builds populate
+them. The distribution is rebuilt and validated on every run.
+
+[Dependabot](../.github/dependabot.yml) checks Cargo and GitHub Actions weekly,
+with a seven-day cooldown for version updates in both ecosystems.
+The WASM binding crates update together because their releases require matching
+versions.
 
 To use another static host, upload `dist/` unchanged and serve `.wasm` as
 `application/wasm`.

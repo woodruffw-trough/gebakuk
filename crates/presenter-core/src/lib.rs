@@ -4,6 +4,7 @@
 mod geometry;
 mod gif;
 mod pdf;
+mod poster_filter;
 
 pub use geometry::{PageInfo, Rect};
 use std::{collections::BTreeMap, fmt};
@@ -49,6 +50,8 @@ pub struct GifAttachment {
     pub bytes: Vec<u8>,
     pub width: u16,
     pub height: u16,
+    /// Whether playback may expose the slide underneath the GIF.
+    pub has_transparency: bool,
     pub(crate) decoded_frame_pixels: u64,
 }
 
@@ -72,6 +75,8 @@ pub struct Presentation {
     pages: Vec<PageInfo>,
     attachments: BTreeMap<String, GifAttachment>,
     diagnostics: Vec<String>,
+    poster_filter: Option<poster_filter::PosterFilter>,
+    animated_renderer: Option<(Layout, hayro::hayro_syntax::Pdf)>,
 }
 
 impl Presentation {
@@ -80,7 +85,25 @@ impl Presentation {
         if bytes.len() > MAX_FILE_BYTES {
             return Err(Error::new("PDF exceeds the 64 MiB file limit"));
         }
-        let (pages, attachments, diagnostics) = pdf::parse(&bytes)?;
+        let (mut pages, attachments, mut diagnostics, mut poster_filter) = pdf::parse(&bytes)?;
+        let mut animated_renderer = None;
+        if let Some(filter) = &poster_filter {
+            let layout = geometry::detected_layout(&pages);
+            match filter.renderer(&pages, layout) {
+                Ok(renderer) => animated_renderer = Some((layout, renderer)),
+                Err(error) => {
+                    for page in &mut pages {
+                        page.animations.retain(|overlay| {
+                            !attachments[&overlay.attachment_id].has_transparency
+                        });
+                    }
+                    if diagnostics.len() < 100 {
+                        diagnostics.push(format!("Transparent animations remain static: {error}."));
+                    }
+                    poster_filter = None;
+                }
+            }
+        }
         let renderer = hayro::hayro_syntax::Pdf::new(bytes)
             .map_err(|error| Error::new(format!("Cannot open PDF renderer: {error:?}")))?;
         if renderer.pages().len() != pages.len() {
@@ -91,6 +114,8 @@ impl Presentation {
             pages,
             attachments,
             diagnostics,
+            poster_filter,
+            animated_renderer,
         })
     }
 
@@ -121,6 +146,15 @@ impl Presentation {
         self.attachments.get(id)
     }
 
+    /// Disable a failed browser animation and restore its original PDF poster.
+    pub fn disable_animation(&mut self, id: &str) {
+        for page in &mut self.pages {
+            page.animations
+                .retain(|overlay| overlay.attachment_id != id);
+        }
+        self.animated_renderer.take();
+    }
+
     /// Returns only fully contained, aspect-preserving overlays in the selected region.
     pub fn animations(&self, index: usize, layout: Layout, view: View) -> Vec<Overlay> {
         let Ok(page) = self.page(index) else {
@@ -148,6 +182,73 @@ impl Presentation {
         width: u32,
         height: u32,
     ) -> Result<Raster, Error> {
+        self.render_using(&self.renderer, index, layout, view, width, height)
+    }
+
+    /// Render the slide background without the posters of supported transparent GIFs.
+    ///
+    /// The original document remains available through [`Self::render`], including
+    /// static previews and the fallback after [`Self::disable_animation`]. A single
+    /// filtered document is reused across page navigation, notes and resizing.
+    pub fn render_with_animations(
+        &mut self,
+        index: usize,
+        layout: Layout,
+        view: View,
+        width: u32,
+        height: u32,
+    ) -> Result<Raster, Error> {
+        let contains_transparency = self
+            .animations(index, layout, view)
+            .iter()
+            .any(|overlay| self.attachments[&overlay.attachment_id].has_transparency);
+        let Some(filter) = self
+            .poster_filter
+            .as_ref()
+            .filter(|_| contains_transparency)
+        else {
+            return self.render(index, layout, view, width, height);
+        };
+        if self
+            .animated_renderer
+            .as_ref()
+            .is_none_or(|(cached_layout, _)| *cached_layout != layout)
+        {
+            match filter.renderer(&self.pages, layout) {
+                Ok(renderer) => self.animated_renderer = Some((layout, renderer)),
+                Err(error) => {
+                    for page in &mut self.pages {
+                        page.animations.retain(|overlay| {
+                            !self.attachments[&overlay.attachment_id].has_transparency
+                        });
+                    }
+                    self.poster_filter = None;
+                    self.animated_renderer = None;
+                    if self.diagnostics.len() < 100 {
+                        self.diagnostics
+                            .push(format!("Transparent animations remain static: {error}."));
+                    }
+                    return self.render(index, layout, view, width, height);
+                }
+            }
+        }
+        let renderer = &self
+            .animated_renderer
+            .as_ref()
+            .expect("Filtered renderer was initialized")
+            .1;
+        self.render_using(renderer, index, layout, view, width, height)
+    }
+
+    fn render_using(
+        &self,
+        renderer: &hayro::hayro_syntax::Pdf,
+        index: usize,
+        layout: Layout,
+        view: View,
+        width: u32,
+        height: u32,
+    ) -> Result<Raster, Error> {
         let region = self.region(index, layout, view)?;
         if width == 0
             || height == 0
@@ -165,7 +266,7 @@ impl Presentation {
             Pixmap, RasterizerSettings, RenderContext, Resources, TargetInit,
             color::palette::css::WHITE,
         };
-        let page = &self.renderer.pages()[index];
+        let page = &renderer.pages()[index];
         let (page_width, page_height) = page.render_dimensions();
         let info = self.page(index)?;
         if (f64::from(page_width) - info.width).abs() > 0.1

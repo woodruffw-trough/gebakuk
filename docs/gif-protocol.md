@@ -7,7 +7,7 @@
 
 The optional [Typst helper](../typst/presenter-gif.typ) requires Typst **0.15.1**.
 Typst displays the GIF's first frame in the PDF, and Gebakuk plays the original
-animation over it. The helper embeds the original bytes and assigns IDs
+animation in its place. The helper embeds the original bytes and assigns IDs
 automatically. Reusing the same file path on multiple pages attaches its
 GIF once.
 
@@ -26,7 +26,6 @@ annotation around the frame joins the two.
 | Attachment filename | `<id>.gif` at the PDF attachment root |
 | ID | 1–128 ASCII letters, digits, `.`, `_`, or `-` |
 | Placement | Unrotated rectangle, contained in the displayed page region |
-| GIF background | Opaque in every frame |
 
 The marker URI is matched strictly. Queries, fragments, percent-encoded IDs,
 unsupported versions, and different hosts are not part of the convention.
@@ -34,7 +33,7 @@ Attachment names are identifiers, never local filesystem paths. A GIF may be
 referenced by multiple annotations on one page or across several pages.
 
 The helper uses absolute virtual attachment paths, `/<id>.gif`, so Typst exports
-root-level attachment names regardless of the source directory. The sixteen PDF
+root-level attachment names regardless of the source directory. The PDF
 fixtures use Typst **0.15.1**; tests verify recovery of the original GIF bytes.
 The viewer accepts PDFs that follow this convention regardless of producer or
 slide theme.
@@ -50,16 +49,19 @@ PDF coordinates into the same displayed region used for rendering. Browser-nativ
 images decode and animate the GIF. Blob URLs are released when the slide changes
 or the document is replaced.
 
-The GIF must define an opaque background and cover its complete canvas in the
-first frame. Frames following background-clear or previous-frame-restore
-disposal must redraw the whole canvas. Optimized partial updates are accepted
-when the previous frame is retained. Unsupported opacity or disposal patterns
-remain static with a diagnostic.
+Opaque and transparent GIFs are supported. For a transparent animation, Gebakuk
+omits its matched static image from the PDF raster while preserving the other
+page content. Transparent pixels then reveal the slide background instead of
+the first frame. Ordinary PDF readers and the next-slide preview keep the static
+image; it is restored if browser GIF decoding fails.
 
-Transparent GIFs are intentionally not animated. Covering a static PDF frame with
-a transparent animation can leave stale pixels visible underneath; an opaque
-background prevents that artifact. Rotation, skew, arbitrary clipping, distorted
-aspect ratios, and media formats other than GIF are outside this first protocol.
+Transparent playback requires one unrotated PDF image matching the marker
+rectangle at the GIF's original aspect ratio. The Typst helper produces this
+placement. Matching supports images drawn directly by the page. Pages containing
+PDF forms, rotated, skewed or mirrored images, clipping, custom graphics state,
+and ambiguous matches keep transparent animations static with a diagnostic.
+Opaque GIFs continue to play over the static raster. Rotated pages, distorted
+aspect ratios, and media formats other than GIF remain unsupported.
 
 ## Explicit IDs and static frames
 
@@ -73,4 +75,5 @@ presentations and callers that provide their own IDs or static images:
 ```
 
 Call `attach-gif` once per ID, then reuse `gif-frame` wherever that animation is
-needed. Supply an opaque static frame with the GIF's original aspect ratio.
+needed. Supply a single static image with the GIF's original aspect ratio.
+Transparent GIFs require the image to match the marker as described above.

@@ -40,6 +40,7 @@ struct RasterKey {
     page: usize,
     notes: bool,
     notes_right: bool,
+    animated: bool,
     width: u32,
     height: u32,
 }
@@ -873,7 +874,7 @@ impl App {
         if !self.audience_role {
             if matches!(self.layout, Layout::NotesRight) {
                 let cached = self
-                    .target_size("notes-slide", self.page, View::Notes)
+                    .target_size("notes-slide", self.page, View::Notes, true)
                     .is_ok_and(|size| self.cache.iter().any(|entry| entry.key == size.key));
                 if cached {
                     if let Err(error) =
@@ -908,12 +909,21 @@ impl App {
             .as_ref()
             .map_or(0, Presentation::page_count);
         if self.page + 1 < count {
-            if self.audience_role {
+            let transparent_preview = self.presentation.as_ref().is_some_and(|pdf| {
+                pdf.animations(self.page + 1, self.layout, View::Audience)
+                    .iter()
+                    .any(|overlay| {
+                        pdf.attachment(&overlay.attachment_id)
+                            .is_some_and(|gif| gif.has_transparency)
+                    })
+            });
+            if self.audience_role || transparent_preview {
                 self.deferred.push_back(DeferredRender::Prefetch {
                     page: self.page + 1,
                     view: View::Audience,
                 });
-            } else if matches!(self.layout, Layout::NotesRight) {
+            }
+            if !self.audience_role && matches!(self.layout, Layout::NotesRight) {
                 self.deferred.push_back(DeferredRender::Prefetch {
                     page: self.page + 1,
                     view: View::Notes,
@@ -1014,7 +1024,7 @@ impl App {
                 // Render the preview at the size needed when this becomes the
                 // current slide, then reuse that same canvas on navigation.
                 let result = self
-                    .target_size("current-slide", page, View::Audience)
+                    .target_size("current-slide", page, View::Audience, false)
                     .and_then(|size| {
                         self.render_target(
                             "next-slide",
@@ -1034,14 +1044,20 @@ impl App {
                 } else {
                     "current-slide"
                 };
-                if let Ok(size) = self.target_size(id, page, view) {
+                if let Ok(size) = self.target_size(id, page, view, true) {
                     let _ = self.cached_canvas(size.key);
                 }
             }
         }
     }
 
-    fn target_size(&self, id: &str, page: usize, view: View) -> Result<TargetSize, String> {
+    fn target_size(
+        &self,
+        id: &str,
+        page: usize,
+        view: View,
+        animated: bool,
+    ) -> Result<TargetSize, String> {
         let host = self
             .dom
             .get_element_by_id(id)
@@ -1071,6 +1087,15 @@ impl App {
             page,
             notes: matches!(view, View::Notes),
             notes_right: matches!(self.layout, Layout::NotesRight),
+            // Opaque animations retain the shared preview/current canvas path.
+            animated: animated
+                && pdf
+                    .animations(page, self.layout, view)
+                    .iter()
+                    .any(|overlay| {
+                        pdf.attachment(&overlay.attachment_id)
+                            .is_some_and(|gif| gif.has_transparency)
+                    }),
             width: pixel_width as u32,
             height: pixel_height as u32,
         };
@@ -1098,12 +1123,17 @@ impl App {
         } else {
             Layout::Normal
         };
-        let raster = self
-            .presentation
-            .as_ref()
-            .ok_or("No PDF")?
-            .render(key.page, layout, view, key.width, key.height)
-            .map_err(|error| error.to_string())?;
+        let pdf = self.presentation.as_mut().ok_or("No PDF")?;
+        let diagnostics_count = pdf.diagnostics().len();
+        let raster = if key.animated {
+            pdf.render_with_animations(key.page, layout, view, key.width, key.height)
+        } else {
+            pdf.render(key.page, layout, view, key.width, key.height)
+        }
+        .map_err(|error| error.to_string())?;
+        if pdf.diagnostics().len() > diagnostics_count {
+            self.document_status();
+        }
         let canvas = self
             .dom
             .create_element("canvas")
@@ -1151,7 +1181,7 @@ impl App {
         animated: bool,
         render_key: Option<RasterKey>,
     ) -> Result<(), String> {
-        let size = self.target_size(id, page, view)?;
+        let size = self.target_size(id, page, view, animated)?;
         let canvas = self.cached_canvas(render_key.unwrap_or(size.key))?;
         let host = self
             .dom
@@ -1264,6 +1294,21 @@ impl App {
             return;
         }
         self.failed_gifs.insert(attachment_id.to_owned());
+        if let Some(pdf) = self.presentation.as_mut() {
+            pdf.disable_animation(attachment_id);
+        }
+        self.cache.clear();
+        self.invalidate_render();
+        let generation = self.render_generation;
+        // Run after the error callback returns: render() detaches and drops GIF
+        // listeners, including the closure handling this event.
+        spawn_local(async move {
+            with_app(|state| {
+                if state.render_generation == generation {
+                    state.render();
+                }
+            });
+        });
         for listener in &self.gif_listeners {
             if listener.attachment_id == attachment_id {
                 listener.image.remove();

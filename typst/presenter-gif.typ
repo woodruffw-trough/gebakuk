@@ -14,15 +14,15 @@
     description: "Presenter animation: " + id)
 }
 
-// Wrap an ordinary static image. Use its original aspect ratio and an opaque
-// GIF: transparent animations intentionally remain static in the presenter.
+// Wrap one static image at the GIF's original aspect ratio. Transparent GIFs
+// animate when the viewer can match this image to its marker.
 #let gif-frame(id, body) = {
   valid-id(id)
   link("https://presenter.invalid/gif/v1/" + id, body)
 }
 
 // path(...) resolves the file beside the caller, even when this helper is elsewhere.
-// Typst draws the GIF's first frame; Gebakuk overlays its original animation.
+// Typst draws the GIF's first frame; Gebakuk displays its original animation.
 #let gif-files = state("gebakuk/gif-files/v1", ())
 #let gif(source, ..args) = context {
   assert(type(source) == path,

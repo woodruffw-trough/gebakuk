@@ -3,7 +3,7 @@ use crate::{Error, GifAttachment, MAX_GIF_DECODED_PIXELS};
 const MAX_GIF_PIXELS: u64 = 16_000_000;
 const MAX_FRAMES: usize = 2_000;
 
-/// Validate framing, opaque indexed pixels, and resource requirements.
+/// Validate framing, indexed pixels, and resource requirements.
 /// Browser-native decoding remains responsible for actual animation playback.
 pub(crate) fn validate_gif_with_budget(
     bytes: Vec<u8>,
@@ -23,17 +23,24 @@ pub(crate) fn validate_gif_with_budget(
         return Err(Error::new("GIF dimensions exceed the supported limits"));
     }
     let mut cursor = 13;
-    // A defined opaque logical background avoids transparent untouched canvas pixels.
-    if bytes[10] & 0x80 == 0 || usize::from(bytes[11]) >= palette_size(bytes[10]) / 3 {
-        return Err(Error::new(
-            "GIF overlays require a global palette and an opaque background",
-        ));
-    }
-    skip(&bytes, &mut cursor, palette_size(bytes[10]))?;
+    let global_palette_colors = if bytes[10] & 0x80 != 0 {
+        let colors = palette_size(bytes[10]) / 3;
+        if usize::from(bytes[11]) >= colors {
+            return Err(Error::new(
+                "GIF background references a missing palette color",
+            ));
+        }
+        skip(&bytes, &mut cursor, palette_size(bytes[10]))?;
+        Some(colors)
+    } else {
+        None
+    };
     let mut frames = 0;
     let mut frame_pixels = 0_u64;
+    let mut pending_transparency = None;
     let mut pending_disposal = 0;
     let mut previous_disposal = 0;
+    let mut has_transparency = global_palette_colors.is_none();
     loop {
         let tag = *bytes
             .get(cursor)
@@ -59,16 +66,9 @@ pub(crate) fn validate_gif_with_budget(
                     return Err(Error::new("GIF frame extends outside its logical canvas"));
                 }
                 frames += 1;
-                let complete_canvas = left == 0 && top == 0 && fw == width && fh == height;
-                if frames == 1 && !complete_canvas {
-                    return Err(Error::new(
-                        "GIF overlays require the first frame to cover the complete canvas",
-                    ));
-                }
-                if matches!(previous_disposal, 2 | 3) && !complete_canvas {
-                    return Err(Error::new(
-                        "GIF frames following background/previous disposal must cover the complete canvas for opaque overlays",
-                    ));
+                let partial_canvas = left != 0 || top != 0 || fw != width || fh != height;
+                if partial_canvas && (frames == 1 || matches!(previous_disposal, 2 | 3)) {
+                    has_transparency = true;
                 }
                 previous_disposal = pending_disposal;
                 pending_disposal = 0;
@@ -90,8 +90,17 @@ pub(crate) fn validate_gif_with_budget(
                     skip(&bytes, &mut cursor, palette_size(flags))?;
                     palette_size(flags) / 3
                 } else {
-                    palette_size(bytes[10]) / 3
+                    global_palette_colors
+                        .ok_or_else(|| Error::new("GIF frame has no color palette"))?
                 };
+                if pending_transparency
+                    .take()
+                    .is_some_and(|index| usize::from(index) >= palette_colors)
+                {
+                    return Err(Error::new(
+                        "GIF transparency references a missing palette color",
+                    ));
+                }
                 let code_size = *bytes
                     .get(cursor)
                     .ok_or_else(|| Error::new("Truncated GIF image data"))?;
@@ -119,15 +128,17 @@ pub(crate) fn validate_gif_with_budget(
                     if gce[0] != 4 || gce[5] != 0 {
                         return Err(Error::new("Invalid GIF control extension"));
                     }
-                    if gce[1] & 1 != 0 {
-                        return Err(Error::new(
-                            "Transparent GIFs are disabled: use an opaque background for correct overlays",
-                        ));
-                    }
+                    pending_transparency = (gce[1] & 1 != 0).then_some(gce[4]);
+                    has_transparency |= pending_transparency.is_some();
                     pending_disposal = (gce[1] >> 2) & 7;
                     if pending_disposal > 3 {
                         return Err(Error::new("GIF uses an unsupported frame disposal method"));
                     }
+                } else if label == 0x01 {
+                    // A control extension applies to the next graphic block,
+                    // including a plain-text block rather than a later image.
+                    pending_transparency = None;
+                    pending_disposal = 0;
                 }
                 sub_blocks(&bytes, &mut cursor)?;
             }
@@ -138,6 +149,7 @@ pub(crate) fn validate_gif_with_budget(
         bytes,
         width,
         height,
+        has_transparency,
         decoded_frame_pixels: frame_pixels,
     })
 }
@@ -247,24 +259,90 @@ mod tests {
         ]
     }
 
+    const PALETTE: [u8; 6] = [255, 0, 0, 0, 0, 255];
+
+    fn frame(left: u16, top: u16, control: Option<(u8, u8)>, local: bool) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        if let Some((flags, transparent_index)) = control {
+            bytes.extend_from_slice(&[0x21, 0xf9, 4, flags, 0, 0, transparent_index, 0]);
+        }
+        bytes.push(0x2c);
+        bytes.extend_from_slice(&left.to_le_bytes());
+        bytes.extend_from_slice(&top.to_le_bytes());
+        bytes.extend_from_slice(&[1, 0, 1, 0, if local { 0x80 } else { 0 }]);
+        if local {
+            bytes.extend_from_slice(&PALETTE);
+        }
+        // LSB codes [clear=4, index=0, end=5], exactly one decoded pixel.
+        bytes.extend_from_slice(&[2, 2, 0x44, 1, 0]);
+        bytes
+    }
+
+    fn framed_gif(width: u16, height: u16, global: bool, frames: &[Vec<u8>]) -> Vec<u8> {
+        let mut bytes = b"GIF89a".to_vec();
+        bytes.extend_from_slice(&width.to_le_bytes());
+        bytes.extend_from_slice(&height.to_le_bytes());
+        // Without a GCT the background index is unspecified and ignored.
+        bytes.extend_from_slice(&[
+            if global { 0x80 } else { 0 },
+            if global { 0 } else { 255 },
+            0,
+        ]);
+        if global {
+            bytes.extend_from_slice(&PALETTE);
+        }
+        for frame in frames {
+            bytes.extend_from_slice(frame);
+        }
+        bytes.push(0x3b);
+        bytes
+    }
+
     #[test]
     fn preserves_opaque_gif_bytes() {
         let bytes = tiny_gif();
         let gif = validate_gif(bytes.clone()).unwrap();
         assert_eq!(gif.bytes, bytes);
         assert_eq!((gif.width, gif.height), (1, 1));
+        assert!(!gif.has_transparency);
     }
 
     #[test]
-    fn rejects_transparency_in_any_frame() {
-        let mut bytes = tiny_gif();
-        bytes[22] |= 1;
-        assert!(
-            validate_gif(bytes)
-                .unwrap_err()
-                .to_string()
-                .contains("Transparent")
-        );
+    fn full_opaque_frames_remain_opaque_with_background_disposal() {
+        for bytes in [
+            include_bytes!("../../../fixtures/assets/orbit.gif").as_slice(),
+            include_bytes!("../../../fixtures/assets/pulse.gif").as_slice(),
+        ] {
+            let gif = validate_gif(bytes.to_vec()).unwrap();
+            assert!(!gif.has_transparency);
+        }
+    }
+
+    #[test]
+    fn partial_updates_expose_pixels_only_after_clearing_or_restoring() {
+        for disposal in 0..=3 {
+            let mut first = frame(0, 0, Some((disposal << 2, 0)), false);
+            first[13] = 2; // Full two-pixel first frame.
+            first[20] = 4;
+            first[21] = 10; // LZW clear, index 0, index 0, end.
+            let bytes = framed_gif(2, 1, true, &[first, frame(1, 0, None, false)]);
+            let gif = validate_gif(bytes).unwrap();
+            assert_eq!(gif.has_transparency, matches!(disposal, 2 | 3));
+        }
+    }
+
+    #[test]
+    fn accepts_transparency_in_first_or_later_frames() {
+        for transparent_frame in 0..2 {
+            let frames: Vec<_> = (0..2)
+                .map(|index| frame(0, 0, Some((u8::from(index == transparent_frame), 1)), false))
+                .collect();
+            let bytes = framed_gif(1, 1, true, &frames);
+            let gif = validate_gif(bytes.clone()).unwrap();
+            assert_eq!(gif.bytes, bytes);
+            assert!(gif.has_transparency);
+            assert_eq!(gif.decoded_frame_pixels, 2);
+        }
     }
 
     #[test]
@@ -279,40 +357,159 @@ mod tests {
     }
 
     #[test]
-    fn rejects_uncovered_canvas_even_without_a_transparency_flag() {
+    fn accepts_uncovered_canvas_without_a_transparency_flag() {
         let mut bytes = tiny_gif();
         bytes[6] = 2;
+        let gif = validate_gif(bytes).unwrap();
+        assert!(gif.has_transparency);
+        assert_eq!(gif.decoded_frame_pixels, 2);
+    }
+
+    #[test]
+    fn accepts_partial_frames_with_background_or_previous_disposal() {
+        for disposal in [2, 3] {
+            let bytes = framed_gif(
+                2,
+                2,
+                true,
+                &[
+                    frame(0, 0, Some((disposal << 2, 0)), false),
+                    frame(1, 1, Some((1, 1)), false),
+                ],
+            );
+            let gif = validate_gif(bytes).unwrap();
+            assert!(gif.has_transparency);
+            // Even tiny update rectangles spend the complete canvas budget.
+            assert_eq!(gif.decoded_frame_pixels, 8);
+        }
+    }
+
+    #[test]
+    fn accepts_local_palettes_without_a_global_palette() {
+        let bytes = framed_gif(1, 1, false, &[frame(0, 0, Some((1, 1)), true)]);
+        let gif = validate_gif(bytes.clone()).unwrap();
+        assert_eq!(gif.bytes, bytes);
+        assert!(gif.has_transparency);
+    }
+
+    #[test]
+    fn transparency_uses_the_active_palette_and_only_the_next_graphic() {
+        let mut bytes = framed_gif(
+            1,
+            1,
+            true,
+            &[frame(0, 0, Some((1, 3)), false), frame(0, 0, None, true)],
+        );
+        bytes[10] = 0x81; // Four global entries, but only two local entries.
+        bytes.splice(19..19, [0, 255, 0, 255, 255, 255]);
+        assert!(validate_gif(bytes).is_ok());
+
+        let bytes = framed_gif(1, 1, true, &[frame(0, 0, Some((1, 2)), false)]);
         assert!(
             validate_gif(bytes)
                 .unwrap_err()
                 .to_string()
-                .contains("complete canvas")
+                .contains("transparency")
         );
-    }
-
-    #[test]
-    fn disposal_cannot_expose_transparent_canvas_between_opaque_frames() {
-        // Valid two-pixel red first frame, then a one-pixel blue update.
-        // Browser disposal 2 clears the canvas before the partial update.
-        let mut bytes = vec![
-            71, 73, 70, 56, 57, 97, 2, 0, 1, 0, 128, 0, 0, 255, 0, 0, 0, 0, 255, 33, 249, 4, 8, 10,
-            0, 0, 0, 44, 0, 0, 0, 0, 2, 0, 1, 0, 0, 2, 2, 4, 10, 0, 33, 249, 4, 4, 10, 0, 0, 0, 44,
-            0, 0, 0, 0, 1, 0, 1, 0, 0, 2, 2, 76, 1, 0, 59,
-        ];
+        let bytes = framed_gif(1, 1, false, &[frame(0, 0, Some((1, 2)), true)]);
         assert!(
-            validate_gif(bytes.clone())
+            validate_gif(bytes)
                 .unwrap_err()
                 .to_string()
-                .contains("disposal")
+                .contains("transparency")
         );
-        bytes[22] = 12; // Restore-previous disposal receives the same conservative guard.
-        assert!(validate_gif(bytes.clone()).is_err());
-        bytes[22] = 4; // Keeping the opaque previous frame makes the partial update safe.
+        // The index has no meaning when transparency is disabled.
+        let bytes = framed_gif(1, 1, true, &[frame(0, 0, Some((0, 255)), false)]);
         assert!(validate_gif(bytes).is_ok());
     }
 
     #[test]
-    fn malformed_lzw_and_missing_palette_entries_cannot_make_opaque_frames_transparent() {
+    fn plain_text_consumes_control_extensions_but_comments_do_not() {
+        for plain_text in [true, false] {
+            let mut graphic = vec![0x21, 0xf9, 4, 1, 0, 0, 3, 0];
+            if plain_text {
+                // Plain text uses global colors and consumes its preceding GCE.
+                graphic.extend_from_slice(&[
+                    0x21, 0x01, 12, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 1, b'A', 0,
+                ]);
+            } else {
+                graphic.extend_from_slice(&[0x21, 0xfe, 1, b'A', 0]);
+            }
+            graphic.extend_from_slice(&frame(0, 0, None, true));
+            let mut bytes = framed_gif(1, 1, true, &[graphic]);
+            bytes[10] = 0x81; // Four global entries, two in the image's local palette.
+            bytes.splice(19..19, [0, 255, 0, 255, 255, 255]);
+            if plain_text {
+                assert!(validate_gif(bytes).is_ok());
+            } else {
+                assert!(
+                    validate_gif(bytes)
+                        .unwrap_err()
+                        .to_string()
+                        .contains("transparency")
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn rejects_missing_palettes_invalid_background_and_frame_bounds() {
+        let bytes = framed_gif(1, 1, false, &[frame(0, 0, None, false)]);
+        assert!(
+            validate_gif(bytes)
+                .unwrap_err()
+                .to_string()
+                .contains("no color palette")
+        );
+        let mut bytes = tiny_gif();
+        bytes[11] = 2;
+        assert!(
+            validate_gif(bytes)
+                .unwrap_err()
+                .to_string()
+                .contains("background")
+        );
+        for (left, top) in [(2, 0), (0, 2)] {
+            let bytes = framed_gif(2, 2, true, &[frame(left, top, None, false)]);
+            assert!(
+                validate_gif(bytes)
+                    .unwrap_err()
+                    .to_string()
+                    .contains("outside")
+            );
+        }
+        let bytes = framed_gif(1, 1, true, &[frame(0, 0, Some((4 << 2, 0)), false)]);
+        assert!(
+            validate_gif(bytes)
+                .unwrap_err()
+                .to_string()
+                .contains("disposal")
+        );
+    }
+
+    #[test]
+    fn partial_frames_still_obey_full_canvas_and_frame_count_budgets() {
+        let bytes = framed_gif(2, 2, true, &[frame(0, 0, Some((1, 1)), false)]);
+        let mut budget = 3;
+        assert!(validate_gif_with_budget(bytes, &mut budget).is_err());
+        let frames = vec![frame(0, 0, None, false); MAX_FRAMES + 1];
+        assert!(
+            validate_gif(framed_gif(1, 1, true, &frames))
+                .unwrap_err()
+                .to_string()
+                .contains("frame count")
+        );
+        let frames = vec![frame(0, 0, Some((1, 1)), false); 9];
+        assert!(
+            validate_gif(framed_gif(4000, 4000, true, &frames))
+                .unwrap_err()
+                .to_string()
+                .contains("decoded size")
+        );
+    }
+
+    #[test]
+    fn rejects_malformed_lzw_missing_palette_indices_and_wrong_pixel_counts() {
         let mut bytes = tiny_gif();
         bytes[39] = 255;
         bytes[40] = 255;

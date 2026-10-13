@@ -69,7 +69,16 @@ the fitted canvas during resizing. A least-recently-used cache holds at most six
 uploaded canvases and 64 MiB of pixel data. A cache hit reuses the canvas without
 copying RGBA pixels through `ImageData` again. The next-slide preview uses the
 resolution required by the current-slide viewport, so its canvas can become the
-current slide directly.
+current slide directly for opaque GIFs. Transparent slides keep separate static
+preview and animated canvases; neighboring animated canvases are prefetched.
+
+Transparent GIFs need the PDF's first-frame image removed before playback. The
+core matches its direct image draw to the animation marker, then builds a
+filtered PDF that retains the background and other artwork. One filtered
+renderer is reused across navigation, notes, and resizing; layout changes and
+animation failures invalidate it. The original renderer provides static previews
+and restores a failed animation's poster. Unsupported or ambiguous matches stay
+static. See the [GIF convention](gif-protocol.md) for supported placements.
 
 Navigation sends the audience state immediately and displays the current slide
 first. Missing notes, the next preview, and neighboring slide/notes canvases are
@@ -133,7 +142,7 @@ once through `URLSearchParams`; callers should encode the entire PDF URL with
 `&`, `+`, and `#` characters are preserved. The download still uses the same CORS,
 credential, referrer, size, and timeout rules.
 
-Typst **0.15.1** regenerates the sixteen checked-in PDF fixtures. Attachment tests
+Typst **0.15.1** regenerates the checked-in PDF fixtures. Attachment tests
 verify that original GIF bytes survive export unchanged. The viewer's GIF
 convention is independent of Typst versions.
 

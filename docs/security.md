@@ -64,6 +64,11 @@ validation in this release; ordinary standalone JPEG image streams are supported
 Inline PDF images are unsupported in this release. Image color components and
 predictor row parameters are checked before application-managed decoding.
 
+Preparing transparent animation backgrounds bounds decoded page content,
+graphics instructions, graphics-state nesting, and the resulting PDF size.
+If a poster cannot be safely matched or removed, the animation stays static
+with a diagnostic.
+
 Malformed pages, invalid rectangles, unsupported GIF placements, missing
 attachments, and duplicate IDs produce controlled errors or diagnostics.
 The browser plays GIFs after bounded framing and compressed-index checks. Parser internals,
@@ -81,11 +86,12 @@ memory sandbox. Use trusted presentations when predictable responsiveness matter
   another PDF export.
 - Cross-origin PDF URLs require CORS permission. Sources requiring cookies or
   other browser credentials cannot be loaded through the URL control.
-- Animation requires opaque GIFs and rectangular placements with matching aspect
-  ratios. The first frame must cover the complete canvas; a frame following a
-  clear/restore disposal operation must also cover the canvas. GIFs that expose
-  transparent canvas pixels remain static with a diagnostic. Animation placements
-  on rotated pages, skewed images, and arbitrary clipping are unsupported.
+- Opaque and transparent GIFs use unrotated rectangles at their original aspect
+  ratio. Transparent playback needs one uniquely matched poster image drawn
+  directly by the page. Pages containing PDF forms, rotated, skewed or mirrored
+  poster images, clipping, custom graphics state, and ambiguous matches keep
+  transparent animations static with a diagnostic. Rotated pages remain
+  unsupported. See the [GIF convention](gif-protocol.md) for details.
 - Parsing and rendering run on the main browser thread. Dense pages can briefly
   block input; raster bounds may reduce resolution on very large displays.
 - PDF compatibility follows `hayro` and `lopdf`. Encrypted PDFs and the image

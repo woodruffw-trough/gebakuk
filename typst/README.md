@@ -46,12 +46,5 @@ documented in the [GIF convention](../docs/gif-protocol.md#explicit-ids-and-stat
 Its compiled PDF is checked in at [`web/guide.pdf`](../web/guide.pdf), and
 **Open guide** loads it through `?source=guide.pdf`.
 
-Regenerate it with Typst **0.15.1** from the repository root, using bundled fonts
-and a fixed creation timestamp:
-
-```sh
-typst compile --root . --ignore-system-fonts --creation-timestamp 0 typst/guide/guide.typ web/guide.pdf
-```
-
-The application build copies the checked-in PDF to `dist/guide.pdf`; Typst is
-needed only when editing the guide or regenerating fixtures.
+See the [development instructions](../docs/development.md#regenerate-the-public-guide)
+to regenerate it.

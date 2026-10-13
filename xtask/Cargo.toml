@@ -5,6 +5,3 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 publish = false
-
-[package.metadata.tools]
-wasm-tools = "1.245.1"

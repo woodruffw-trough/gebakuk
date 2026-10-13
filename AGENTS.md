@@ -2,7 +2,7 @@
 
 Keep application logic in Rust. Do not add JavaScript package managers, bundlers,
 frontend frameworks, native PDF renderers, or a backend. The handwritten
-JavaScript in `web/index.html` only starts the generated WASM module.
+JavaScript in `web/bootstrap.js` only starts the generated WASM module.
 
 Project crates forbid unsafe Rust. Keep PDF processing and geometry in
 `presenter-core`, and browser APIs and presentation state in `presenter-web`.

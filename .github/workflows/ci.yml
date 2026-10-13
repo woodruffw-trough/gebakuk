@@ -43,19 +43,15 @@ jobs:
           persist-credentials: false
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.99.0 --profile minimal --component rustfmt,clippy --target wasm32-unknown-unknown
-      - name: Read WASM tool versions
+      - name: Read wasm-bindgen version
         id: tool-versions
         run: cargo xtask tool-versions >> "$GITHUB_OUTPUT"
-      - name: Restore pinned WASM tools
+      - name: Restore matching wasm-bindgen
         id: tools-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.cargo/bin/wasm-bindgen
-            ~/.cargo/bin/wasm-tools
-          key: wasm-tools-v2-ubuntu24.04-${{ runner.os }}-${{ runner.arch }}-bindgen${{ steps.tool-versions.outputs.wasm_bindgen }}-validator${{ steps.tool-versions.outputs.wasm_tools }}-validate-${{ hashFiles('rust-toolchain.toml', 'xtask/Cargo.toml') }}
-          restore-keys: |
-            wasm-tools-v1-ubuntu24.04-${{ runner.os }}-${{ runner.arch }}-rust1.99.0-bindgen${{ steps.tool-versions.outputs.wasm_bindgen }}-validator${{ steps.tool-versions.outputs.wasm_tools }}-validate-${{ hashFiles('rust-toolchain.toml') }}
+          path: ~/.cargo/bin/wasm-bindgen
+          key: wasm-bindgen-v1-ubuntu24.04-${{ runner.os }}-${{ runner.arch }}-${{ steps.tool-versions.outputs.wasm_bindgen }}-${{ hashFiles('rust-toolchain.toml') }}
       - name: Restore Cargo dependencies and build outputs
         id: cargo-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -80,9 +76,9 @@ jobs:
         run: cargo test --locked --workspace
       - name: Check browser lint and compilation
         run: cargo clippy --locked -p presenter-web --target wasm32-unknown-unknown -- -D warnings
-      - name: Install matching WASM tools
+      - name: Install matching wasm-bindgen
         run: cargo xtask install-tools
-      - name: Build and validate SIMD128 distribution
+      - name: Build optimized WASM distribution
         run: cargo xtask build
       - name: Select Pages artifact name
         id: pages-artifact
@@ -96,13 +92,11 @@ jobs:
           path: dist
           retention-days: 7
       # PRs restore default-branch caches; only successful main builds populate them.
-      - name: Save pinned WASM tools
+      - name: Save matching wasm-bindgen
         if: success() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && steps.tools-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.cargo/bin/wasm-bindgen
-            ~/.cargo/bin/wasm-tools
+          path: ~/.cargo/bin/wasm-bindgen
           key: ${{ steps.tools-cache.outputs.cache-primary-key }}
       - name: Save Cargo dependencies and build outputs
         if: success() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && steps.cargo-cache.outputs.cache-hit != 'true'

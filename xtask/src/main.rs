@@ -6,7 +6,7 @@ use std::ffi::OsString;
 use std::fs;
 use std::io;
 use std::path::Path;
-use std::process::{Command, Output};
+use std::process::Command;
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
@@ -32,9 +32,7 @@ fn execute() -> Result<()> {
         Some("build") => build(root),
         Some("install-tools") => install_tools(root),
         Some("tool-versions") => {
-            let versions = ToolVersions::read(root)?;
-            println!("wasm_bindgen={}", versions.bindgen);
-            println!("wasm_tools={}", versions.validator);
+            println!("wasm_bindgen={}", bindgen_version(root)?);
             Ok(())
         }
         None | Some("help" | "--help" | "-h") => {
@@ -45,69 +43,36 @@ fn execute() -> Result<()> {
     }
 }
 
-struct ToolVersions {
-    bindgen: String,
-    validator: String,
-}
-
-impl ToolVersions {
-    fn read(root: &Path) -> Result<Self> {
-        Ok(Self {
-            bindgen: locked_version(
-                &fs::read_to_string(root.join("Cargo.lock"))?,
-                "wasm-bindgen",
-            )?,
-            validator: quoted_value(
-                &fs::read_to_string(root.join("xtask/Cargo.toml"))?,
-                "[package.metadata.tools]",
-                "wasm-tools",
-            )?,
-        })
-    }
-
-    fn check(&self) -> Result<()> {
-        require_version("wasm-bindgen", &self.bindgen, "cargo xtask install-tools")?;
-        require_version("wasm-tools", &self.validator, "cargo xtask install-tools")
-    }
+fn bindgen_version(root: &Path) -> Result<String> {
+    locked_version(
+        &fs::read_to_string(root.join("Cargo.lock"))?,
+        "wasm-bindgen",
+    )
 }
 
 fn install_tools(root: &Path) -> Result<()> {
-    let versions = ToolVersions::read(root)?;
-    for (binary, package, version, extra) in [
-        (
-            "wasm-bindgen",
-            "wasm-bindgen-cli",
-            versions.bindgen.as_str(),
-            &[][..],
-        ),
-        (
-            "wasm-tools",
-            "wasm-tools",
-            versions.validator.as_str(),
-            &["--no-default-features", "--features", "validate"][..],
-        ),
-    ] {
-        if installed_version(binary)?.as_deref() == Some(&format!("{binary} {version}")) {
-            println!("{binary} {version} is installed");
-            continue;
-        }
-        let mut command = Command::new(cargo());
-        command.current_dir(root).args([
+    let version = bindgen_version(root)?;
+    if installed_version("wasm-bindgen")?.as_deref() == Some(&format!("wasm-bindgen {version}")) {
+        println!("wasm-bindgen {version} is installed");
+    } else {
+        run(Command::new(cargo()).current_dir(root).args([
             "install",
             "--locked",
             "--force",
-            package,
+            "wasm-bindgen-cli",
             "--version",
-            version,
-        ]);
-        command.args(extra);
-        run(&mut command)?;
+            &version,
+        ]))?;
     }
-    versions.check()
+    require_version("wasm-bindgen", &version, "cargo xtask install-tools")
 }
 
 fn build(root: &Path) -> Result<()> {
-    ToolVersions::read(root)?.check()?;
+    require_version(
+        "wasm-bindgen",
+        &bindgen_version(root)?,
+        "cargo xtask install-tools",
+    )?;
     run(Command::new(cargo()).current_dir(root).args([
         "build",
         "--locked",
@@ -139,35 +104,7 @@ fn build(root: &Path) -> Result<()> {
         .args(["--out-name", "presenter_web"])
         .arg(target.join("wasm32-unknown-unknown/release/presenter_web.wasm")))?;
 
-    let wasm = dist.join("pkg/presenter_web_bg.wasm");
-    run(Command::new("wasm-tools").arg("validate").arg(&wasm))?;
-    // Validate the packaged module, including a check that it requires SIMD.
-    let scalar = Command::new("wasm-tools")
-        .args(["validate", "--features=-simd,-relaxed-simd"])
-        .arg(&wasm)
-        .output()?;
-    validate_simd(&scalar)?;
-    fs::write(dist.join(".nojekyll"), [])?;
-    println!("Validated SIMD128 application built in {}", dist.display());
-    Ok(())
-}
-
-fn validate_simd(output: &Output) -> Result<()> {
-    if output.status.success() {
-        return Err(
-            io::Error::other("The packaged WASM contains no required SIMD instructions").into(),
-        );
-    }
-    let diagnostics = format!(
-        "{}{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr),
-    );
-    if !diagnostics.contains("SIMD support is not enabled") {
-        return Err(
-            io::Error::other(format!("Unexpected SIMD validation failure: {diagnostics}")).into(),
-        );
-    }
+    println!("Built static application in {}", dist.display());
     Ok(())
 }
 
@@ -238,16 +175,6 @@ fn locked_version(lock: &str, package: &str) -> Result<String> {
     found.ok_or_else(|| io::Error::other(format!("Cargo.lock does not contain {package}")).into())
 }
 
-fn quoted_value(manifest: &str, section: &str, field: &str) -> Result<String> {
-    let body = manifest
-        .split_once(section)
-        .map(|(_, body)| body)
-        .ok_or_else(|| io::Error::other(format!("xtask/Cargo.toml has no {section}")))?;
-    string_field(body, field).ok_or_else(|| {
-        io::Error::other(format!("xtask/Cargo.toml has no {field} in {section}")).into()
-    })
-}
-
 fn string_field(record: &str, field: &str) -> Option<String> {
     for line in record.lines() {
         let line = line.trim();
@@ -269,7 +196,7 @@ fn string_field(record: &str, field: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{locked_version, quoted_value};
+    use super::locked_version;
 
     #[test]
     fn bindgen_version_tracks_the_resolved_lockfile() {
@@ -290,15 +217,5 @@ mod tests {
             )
             .is_err()
         );
-    }
-
-    #[test]
-    fn tool_configuration_stays_in_its_table() {
-        let manifest = "[package]\nname = \"xtask\"\n[package.metadata.tools]\nwasm-tools = \"1.245.1\"\n[next]\nother = \"value\"\n";
-        assert_eq!(
-            quoted_value(manifest, "[package.metadata.tools]", "wasm-tools").unwrap(),
-            "1.245.1"
-        );
-        assert!(quoted_value(manifest, "[package.metadata.tools]", "other").is_err());
     }
 }

@@ -1778,11 +1778,112 @@
         }
       ]
     },
-    "transparent.pdf": {
-      "sha256": "33bdcfb4cbf8719c0394f0a4fcf88cb237cb718080e1175d3bcd9ec3a0bc0445",
-      "bytes": 20952,
+    "transparent-disposal.pdf": {
+      "sha256": "50411a0c071da065dc9d0fddd2c4dcff7b98990b83ae0ab7985f0763258760a9",
+      "bytes": 20111,
       "attachments": {
-        "transparent.gif": {
+        "gebakuk-gif-0.gif": {
+          "bytes": 3214,
+          "sha256": "1099759f90247129576e457e3a94aacf9d7415c00f28c6588dc2d274a3932146"
+        },
+        "gebakuk-gif-1.gif": {
+          "bytes": 4507,
+          "sha256": "44bba80090fbac033ec2b942d60b201cb1ef608c429816996ee88fe55163d151"
+        }
+      },
+      "pages": [
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": [
+            {
+              "uri": "https://presenter.invalid/gif/v1/gebakuk-gif-0",
+              "rect": [
+                40.0,
+                120.0,
+                360.0,
+                300.0
+              ]
+            }
+          ]
+        },
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            640.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": [
+            {
+              "uri": "https://presenter.invalid/gif/v1/gebakuk-gif-1",
+              "rect": [
+                40.0,
+                120.0,
+                360.0,
+                300.0
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "transparent-notes-right.pdf": {
+      "sha256": "bf57514d351416b482eba9c70e191429dc3df25c2a3170372640d68d12ddba56",
+      "bytes": 19233,
+      "attachments": {
+        "gebakuk-gif-0.gif": {
+          "bytes": 11226,
+          "sha256": "5bd241c550d8b32b017837fa2eaf04f328a99f9dfed33d77c33b0869af822b4e"
+        },
+        "gebakuk-gif-1.gif": {
+          "bytes": 4507,
+          "sha256": "44bba80090fbac033ec2b942d60b201cb1ef608c429816996ee88fe55163d151"
+        }
+      },
+      "pages": [
+        {
+          "crop_box": [
+            0.0,
+            0.0,
+            1280.0,
+            360.0
+          ],
+          "rotation": 0,
+          "markers": [
+            {
+              "uri": "https://presenter.invalid/gif/v1/gebakuk-gif-0",
+              "rect": [
+                40.0,
+                120.0,
+                360.0,
+                300.0
+              ]
+            },
+            {
+              "uri": "https://presenter.invalid/gif/v1/gebakuk-gif-1",
+              "rect": [
+                680.0,
+                120.0,
+                1000.0,
+                300.0
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "transparent.pdf": {
+      "sha256": "d5b21c814eb4cd12c5611fe48a0eb8e8ec2a6ebef3a37aad8405373fd3618baa",
+      "bytes": 15505,
+      "attachments": {
+        "gebakuk-gif-0.gif": {
           "bytes": 11226,
           "sha256": "5bd241c550d8b32b017837fa2eaf04f328a99f9dfed33d77c33b0869af822b4e"
         }
@@ -1798,12 +1899,12 @@
           "rotation": 0,
           "markers": [
             {
-              "uri": "https://presenter.invalid/gif/v1/transparent",
+              "uri": "https://presenter.invalid/gif/v1/gebakuk-gif-0",
               "rect": [
-                30.0,
-                44.0,
-                350.0,
-                224.0
+                40.0,
+                120.0,
+                360.0,
+                300.0
               ]
             }
           ]

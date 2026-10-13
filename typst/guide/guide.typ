@@ -43,7 +43,7 @@
      ))],
     [#gif(path("../../fixtures/assets/orbit.gif"), width: 235pt)
      #v(9pt)
-     #text(size: 12pt, fill: muted)[Opaque demo GIF]])
+     #text(size: 12pt, fill: muted)[Demo GIF]])
   #v(16pt)
   #text(size: 15pt)[Use Next below the slide to follow this guide.]
 ], "Start with this page", [
@@ -154,12 +154,12 @@
   #v(14pt)
   #link("https://github.com/woodruffw-trough/gebakuk/blob/main/docs/gif-protocol.md",
     text(size: 13pt, fill: accent)[Full recipe: docs/gif-protocol.md in the repository])
-], "Use the helper and opaque frames", [
+], "Use the Typst helper", [
   #lines((
     [Use Typst 0.15.1. Copy presenter-gif.typ beside your source.],
-    [path("orbit.gif") resolves beside your document. Use the same file on more slides; it attaches once.],
-    [Keep the GIF opaque, rectangular, unrotated and at its original aspect ratio.],
-    [No separate PNG or ID is needed. Conventional readers show the first frame. See docs/gif-protocol.md for details.],
+    [Use path("orbit.gif") for a file beside your document. Reuse attaches it once.],
+    [Opaque and transparent GIFs work. Keep images unrotated at their original aspect ratio.],
+    [No PNG or ID is needed. Readers and previews show the first frame. Details: docs/gif-protocol.md.],
   ), size: 16pt)
 ])
 

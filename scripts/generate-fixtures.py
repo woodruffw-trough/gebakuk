@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 import subprocess
 
-from PIL import Image, ImageDraw
+from PIL import GifImagePlugin, Image, ImageDraw
 from pypdf import PdfReader, PdfWriter, Transformation
 from pypdf.generic import ArrayObject, DictionaryObject, FloatObject, NameObject
 
@@ -58,6 +58,61 @@ def make_assets():
         else:
             poster = frames[0].convert("RGB")
         poster.save(ASSETS / f"{name}.png", optimize=False)
+
+
+def make_transparency_assets():
+    """Encode explicit partial frames and local palettes without optimization.
+
+    The first orange circle moves away from (32, 90), exposing PDF artwork.
+    The previous-disposal sequence temporarily covers a retained cyan circle
+    with magenta, then restores cyan. Clearing instead of restoring fails it.
+    """
+    orange, cyan, magenta, purple = (
+        (237, 128, 55), (28, 218, 230), (218, 63, 150), (116, 82, 230))
+    first = (orange, (320, 180), (16, 74, 48, 106), (0, 0), 2)
+    partial = (48, 48), (8, 8, 40, 40)
+    cases = [
+        ("transparent-background", [
+            first, (cyan, *partial, (136, 66), 2),
+            (magenta, *partial, (256, 66), 2)]),
+        ("transparent-previous", [
+            first, (cyan, *partial, (136, 66), 1),
+            (magenta, *partial, (136, 66), 3),
+            (purple, (320, 180), (264, 74, 296, 106), (0, 0), 2)]),
+    ]
+    for name, specifications in cases:
+        frames = []
+        for color, size, bounds, _offset, _disposal in specifications:
+            frame = Image.new("P", size, 0)
+            frame.putpalette([0, 0, 0, *color] + [0] * (768 - 6))
+            ImageDraw.Draw(frame).ellipse(bounds, fill=1)
+            frame.info["transparency"] = 0
+            frames.append(frame)
+        header, _ = GifImagePlugin.getheader(
+            frames[0], info={"loop": 0, "background": 0, "optimize": False})
+        data = b"".join(header)
+        for index, frame in enumerate(frames):
+            _color, _size, _bounds, offset, disposal = specifications[index]
+            data += b"".join(GifImagePlugin.getdata(
+                frame, offset=offset, duration=700, transparency=0,
+                disposal=disposal, include_color_table=index > 0))
+        (ASSETS / f"{name}.gif").write_bytes(data + b";")
+        # Pillow composes the encoded frames, so these assertions check the
+        # original first-frame position is cleared for both disposal sequences.
+        with Image.open(ASSETS / f"{name}.gif") as encoded:
+            assert encoded.size == (320, 180) and encoded.n_frames == len(frames)
+            encoded.seek(0)
+            assert encoded.convert("RGBA").getpixel((32, 90)) == (*orange, 255)
+            for index, (color, _size, bounds, offset, _disposal) in enumerate(
+                    specifications[1:], 1):
+                encoded.seek(index)
+                rgba = encoded.convert("RGBA")
+                center = (offset[0] + (bounds[0] + bounds[2]) // 2,
+                          offset[1] + (bounds[1] + bounds[3]) // 2)
+                assert rgba.getpixel((32, 90))[3] == 0
+                assert rgba.getpixel(center) == (*color, 255)
+            if name == "transparent-previous":
+                assert rgba.getpixel((160, 90)) == (*cyan, 255)
 
 
 def save_writer(writer, name):
@@ -158,6 +213,7 @@ def main():
     if not version.startswith(f"typst {TYPST_VERSION} "):
         raise SystemExit(f"Expected Typst {TYPST_VERSION}, got {version.strip()}")
     make_assets()
+    make_transparency_assets()
     for source in sorted((ROOT / "typst").glob("*.typ")):
         if source.stem in {"theme", "presenter-gif"}:
             continue

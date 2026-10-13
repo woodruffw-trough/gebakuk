@@ -345,3 +345,26 @@ and scroll with Page Down while slide navigation stays put. The live region,
 empty/nonempty Tab order, GIF alignment, and audience synchronization passed.
 All **28 native Rust tests**, formatting, native/WASM Clippy, and the optimized
 SIMD128 build pass. Safari and Firefox were not exercised for this update.
+
+## Transparent GIF playback
+
+GIF validation accepts transparency, partial frames, local palettes, and
+background/previous disposal while retaining frame, pixel, palette, and LZW
+limits. Opaque full-frame GIFs retain the shared preview/current canvas path.
+Transparent playback removes uniquely matched PDF poster draws from a cached
+alternate renderer; static previews and failed animations keep the original PDF.
+
+Pixel regressions compare the complete checkerboard background with a reference
+PDF, verify independent slide/notes fallback, and preserve unrelated draws of a
+shared image. Ambiguous, clipped, transformed, and form-based placements retain
+static artwork. Parsing limits apply before content operations are materialized.
+All **42 native Rust tests**, formatting, native/WASM Clippy, and the optimized
+SIMD128 build pass. The eighteen fixtures regenerate identically; the fifteen
+previous fixtures outside the transparency update are unchanged. The eight-page
+guide now documents transparent GIF support.
+
+Chromium verified moving transparent GIFs and clean backgrounds in both windows,
+partial-frame background disposal, and previous disposal restoring cyan after
+magenta while retaining a new purple shape. Static previews, navigation, resizing,
+normal/notes layout changes, and independent decode-failure fallback passed.
+Safari and Firefox were not exercised for this update.

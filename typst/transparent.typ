@@ -1,9 +1,11 @@
-#import "presenter-gif.typ": attach-gif, gif-frame
-#import "theme.typ": slide
+#import "presenter-gif.typ": gif
+#import "transparency/pattern.typ": transparency-background
 #set page(width: 640pt, height: 360pt, margin: 0pt)
-#attach-gif("transparent", read("../fixtures/assets/transparent.gif", encoding: none))
-#slide("Transparent GIF safety check", "The original static image should stay visible.", [
-  #gif-frame("transparent", image("../fixtures/assets/transparent.png", width: 320pt))
-  #v(8pt)
-  #text(size: 12pt)[The presenter should report that transparency is unsupported.]
-])
+#set text(font: "DejaVu Sans Mono", size: 16pt)
+#set document(title: "Transparent animation over patterned PDF artwork")
+#place(dx: 40pt, dy: 20pt, [Transparent GIF over PDF artwork])
+#transparency-background(40pt, 60pt)
+#place(dx: 40pt, dy: 60pt,
+  gif(path("../fixtures/assets/transparent.gif"), width: 320pt))
+#place(dx: 40pt, dy: 270pt, [The orange dot must move without leaving a ghost.])
+#place(dx: 40pt, dy: 300pt, [The blue and green checkerboard must remain visible.])

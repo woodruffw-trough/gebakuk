@@ -179,12 +179,11 @@ fn notes_regions_multiple_gifs_and_attachment_reuse() {
 }
 
 #[test]
-fn malformed_missing_duplicate_and_transparent_animations_have_static_fallback() {
+fn malformed_missing_duplicate_animations_have_static_fallback() {
     for (name, diagnostic) in [
         ("missing-attachment.pdf", "missing"),
         ("malformed-marker.pdf", "Malformed"),
         ("duplicate-identifiers.pdf", "Duplicate"),
-        ("transparent.pdf", "Transparent"),
         ("rotated-gif.pdf", "rotated"),
     ] {
         let doc = load(name);
@@ -204,11 +203,339 @@ fn malformed_missing_duplicate_and_transparent_animations_have_static_fallback()
             .unwrap();
         assert_eq!(raster.rgba.len(), 160 * 90 * 4);
     }
-    assert!(load("transparent.pdf").attachment("transparent").is_none());
     assert!(
         load("duplicate-identifiers.pdf")
             .attachment("orbit")
             .is_none()
+    );
+}
+
+fn write_pdf(mut document: Document) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    document.save_to(&mut bytes).unwrap();
+    bytes
+}
+
+fn replace_content(document: &mut Document, content: lopdf::content::Content) {
+    let page = document.page_iter().next().unwrap();
+    let stream = document.add_object(Stream::new(dictionary! {}, content.encode().unwrap()));
+    document
+        .get_dictionary_mut(page)
+        .unwrap()
+        .set("Contents", stream);
+}
+
+fn transparent_document() -> (Document, lopdf::content::Content) {
+    let document = Document::load_mem(&fixture("transparent.pdf")).unwrap();
+    let page = document.page_iter().next().unwrap();
+    let content = lopdf::content::Content::decode_strict(&document.get_page_content(page)).unwrap();
+    (document, content)
+}
+
+#[test]
+fn transparent_animation_preserves_pattern_and_restores_poster_on_failure() {
+    let mut presentation = load("transparent.pdf");
+    assert!(
+        presentation.diagnostics().is_empty(),
+        "{:?}",
+        presentation.diagnostics()
+    );
+    let overlays = presentation.animations(0, Layout::Normal, View::Audience);
+    assert_eq!(overlays.len(), 1);
+    let id = overlays[0].attachment_id.clone();
+    assert!(presentation.attachment(&id).unwrap().has_transparency);
+    assert_eq!(
+        presentation.attachment(&id).unwrap().bytes,
+        fixture("assets/transparent.gif")
+    );
+    let static_raster = presentation
+        .render(0, Layout::Normal, View::Audience, 640, 360)
+        .unwrap();
+    let animated = presentation
+        .render_with_animations(0, Layout::Normal, View::Audience, 640, 360)
+        .unwrap();
+    let (mut reference, mut content) = transparent_document();
+    content
+        .operations
+        .retain(|operation| operation.operator != "Do");
+    replace_content(&mut reference, content);
+    let reference = Presentation::load(write_pdf(reference))
+        .unwrap()
+        .render(0, Layout::Normal, View::Audience, 640, 360)
+        .unwrap();
+    assert_eq!(
+        animated.rgba, reference.rgba,
+        "Animation background must preserve every original background pixel"
+    );
+    assert_ne!(
+        static_raster.rgba, animated.rgba,
+        "The opaque pixels from the first frame must be removed"
+    );
+    presentation.disable_animation(&id);
+    assert!(
+        presentation
+            .animations(0, Layout::Normal, View::Audience)
+            .is_empty()
+    );
+    assert_eq!(
+        presentation
+            .render_with_animations(0, Layout::Normal, View::Audience, 640, 360)
+            .unwrap()
+            .rgba,
+        static_raster.rgba
+    );
+}
+
+#[test]
+fn filtering_does_not_change_unrelated_draws_of_the_same_image_resource() {
+    use lopdf::content::Operation;
+    let (mut document, mut content) = transparent_document();
+    let poster_index = content
+        .operations
+        .iter()
+        .position(|operation| operation.operator == "Do")
+        .unwrap();
+    let image_name = content.operations[poster_index].operands.clone();
+    content.operations.extend([
+        Operation::new("q", vec![]),
+        Operation::new(
+            "cm",
+            vec![
+                80.into(),
+                0.into(),
+                0.into(),
+                45.into(),
+                480.into(),
+                60.into(),
+            ],
+        ),
+        Operation::new("Do", image_name),
+        Operation::new("Q", vec![]),
+    ]);
+    replace_content(&mut document, content.clone());
+    let mut actual = Presentation::load(write_pdf(document.clone())).unwrap();
+    assert!(
+        actual.diagnostics().is_empty(),
+        "{:?}",
+        actual.diagnostics()
+    );
+    content.operations.remove(poster_index);
+    replace_content(&mut document, content);
+    let expected = Presentation::load(write_pdf(document)).unwrap();
+    assert_eq!(
+        actual
+            .render_with_animations(0, Layout::Normal, View::Audience, 640, 360)
+            .unwrap()
+            .rgba,
+        expected
+            .render(0, Layout::Normal, View::Audience, 640, 360)
+            .unwrap()
+            .rgba
+    );
+}
+
+#[test]
+fn transparent_posters_crossing_notes_boundary_remain_static() {
+    let mut presentation = load("transparent.pdf");
+    for view in [View::Audience, View::Notes] {
+        assert!(
+            presentation
+                .animations(0, Layout::NotesRight, view)
+                .is_empty()
+        );
+        assert_eq!(
+            presentation
+                .render_with_animations(0, Layout::NotesRight, view, 320, 360)
+                .unwrap()
+                .rgba,
+            presentation
+                .render(0, Layout::NotesRight, view, 320, 360)
+                .unwrap()
+                .rgba
+        );
+    }
+}
+
+#[test]
+fn transparent_notes_regions_keep_background_and_independent_fallbacks() {
+    let mut presentation = load("transparent-notes-right.pdf");
+    assert_eq!(presentation.detected_layout(), Layout::NotesRight);
+    assert!(
+        presentation.diagnostics().is_empty(),
+        "{:?}",
+        presentation.diagnostics()
+    );
+    let mut reference = Document::load_mem(&fixture("transparent-notes-right.pdf")).unwrap();
+    let page = reference.page_iter().next().unwrap();
+    let mut content =
+        lopdf::content::Content::decode_strict(&reference.get_page_content(page)).unwrap();
+    content
+        .operations
+        .retain(|operation| operation.operator != "Do");
+    replace_content(&mut reference, content);
+    let reference = Presentation::load(write_pdf(reference)).unwrap();
+    for view in [View::Audience, View::Notes] {
+        assert_eq!(
+            presentation.animations(0, Layout::NotesRight, view).len(),
+            1
+        );
+        assert_eq!(
+            presentation
+                .render_with_animations(0, Layout::NotesRight, view, 640, 360)
+                .unwrap()
+                .rgba,
+            reference
+                .render(0, Layout::NotesRight, view, 640, 360)
+                .unwrap()
+                .rgba
+        );
+    }
+    let id = presentation.animations(0, Layout::NotesRight, View::Audience)[0]
+        .attachment_id
+        .clone();
+    let original_audience = presentation
+        .render(0, Layout::NotesRight, View::Audience, 640, 360)
+        .unwrap();
+    presentation.disable_animation(&id);
+    assert!(
+        presentation
+            .animations(0, Layout::NotesRight, View::Audience)
+            .is_empty()
+    );
+    assert_eq!(
+        presentation
+            .render_with_animations(0, Layout::NotesRight, View::Audience, 640, 360)
+            .unwrap()
+            .rgba,
+        original_audience.rgba
+    );
+    assert_eq!(
+        presentation
+            .animations(0, Layout::NotesRight, View::Notes)
+            .len(),
+        1
+    );
+    assert_eq!(
+        presentation
+            .render_with_animations(0, Layout::NotesRight, View::Notes, 640, 360)
+            .unwrap()
+            .rgba,
+        reference
+            .render(0, Layout::NotesRight, View::Notes, 640, 360)
+            .unwrap()
+            .rgba
+    );
+}
+
+#[test]
+fn clipped_and_form_image_placements_preserve_the_original_pdf() {
+    use lopdf::content::Operation;
+    for form in [false, true] {
+        let (mut document, mut content) = transparent_document();
+        let page = document.page_iter().next().unwrap();
+        if form {
+            let resources = document
+                .get_dictionary(page)
+                .unwrap()
+                .get(b"Resources")
+                .unwrap()
+                .clone();
+            let form = document.add_object(Stream::new(dictionary! {
+                "Type" => "XObject", "Subtype" => "Form", "BBox" => vec![0.into(), 0.into(), 640.into(), 360.into()],
+                "Resources" => resources,
+            }, content.encode().unwrap()));
+            document.get_dictionary_mut(page).unwrap().set(
+                "Resources",
+                dictionary! { "XObject" => dictionary! { "form" => form } },
+            );
+            content.operations = vec![Operation::new("Do", vec![Object::Name(b"form".to_vec())])];
+        } else {
+            content.operations.splice(
+                0..0,
+                [
+                    Operation::new("q", vec![]),
+                    Operation::new("re", vec![0.into(), 0.into(), 640.into(), 360.into()]),
+                    Operation::new("W", vec![]),
+                    Operation::new("n", vec![]),
+                ],
+            );
+            content.operations.push(Operation::new("Q", vec![]));
+        }
+        replace_content(&mut document, content);
+        let mut presentation = Presentation::load(write_pdf(document)).unwrap();
+        assert!(
+            presentation
+                .animations(0, Layout::Normal, View::Audience)
+                .is_empty()
+        );
+        assert!(
+            presentation
+                .diagnostics()
+                .iter()
+                .any(|message| message.contains("remains static"))
+        );
+        assert_eq!(
+            presentation
+                .render_with_animations(0, Layout::Normal, View::Audience, 640, 360)
+                .unwrap()
+                .rgba,
+            presentation
+                .render(0, Layout::Normal, View::Audience, 640, 360)
+                .unwrap()
+                .rgba
+        );
+    }
+}
+
+#[test]
+fn ambiguous_transparent_posters_keep_static_pdf_artwork() {
+    use lopdf::content::Operation;
+    let (mut document, mut content) = transparent_document();
+    let image = content
+        .operations
+        .iter()
+        .find(|operation| operation.operator == "Do")
+        .unwrap()
+        .operands
+        .clone();
+    content.operations.extend([
+        Operation::new("q", vec![]),
+        Operation::new(
+            "cm",
+            vec![
+                320.into(),
+                0.into(),
+                0.into(),
+                180.into(),
+                40.into(),
+                120.into(),
+            ],
+        ),
+        Operation::new("Do", image),
+        Operation::new("Q", vec![]),
+    ]);
+    replace_content(&mut document, content);
+    let mut presentation = Presentation::load(write_pdf(document)).unwrap();
+    assert!(
+        presentation
+            .animations(0, Layout::Normal, View::Audience)
+            .is_empty()
+    );
+    assert!(
+        presentation
+            .diagnostics()
+            .iter()
+            .any(|message| message.contains("ambiguous"))
+    );
+    assert_eq!(
+        presentation
+            .render_with_animations(0, Layout::Normal, View::Audience, 640, 360)
+            .unwrap()
+            .rgba,
+        presentation
+            .render(0, Layout::Normal, View::Audience, 640, 360)
+            .unwrap()
+            .rgba
     );
 }
 

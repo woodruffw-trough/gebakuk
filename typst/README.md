@@ -9,8 +9,8 @@ use:
 ```
 
 The helper requires Typst **0.15.1**. Typst draws the GIF's first frame in the PDF;
-Gebakuk plays the original animation over it. The helper embeds the GIF bytes and
-assigns an attachment ID automatically. Ordinary PDF readers show the first
+Gebakuk plays the original animation in its place. The helper embeds the GIF bytes
+and assigns an attachment ID automatically. Ordinary PDF readers show the first
 frame.
 
 `path("orbit.gif")` resolves the file relative to the document that calls `gif`,
@@ -19,10 +19,10 @@ image while preserving its aspect ratio. Other named image arguments are passed
 to Typst's `image`; the helper fixes the format to GIF. Reuse the same path on
 any slide: the file is attached once, and its placements share the animation.
 
-Use opaque GIF frames in an unrotated rectangle at the original aspect ratio.
-Transparent GIFs and unsupported placements retain the static first frame and
-produce a diagnostic. See the [GIF convention](../docs/gif-protocol.md) for
-opacity and placement requirements.
+Use opaque or transparent GIFs in an unrotated image at the original aspect ratio.
+Unsupported placements retain the static first frame and produce a diagnostic.
+See the [GIF convention](../docs/gif-protocol.md) for placement requirements and
+how transparent playback preserves the PDF background.
 
 [simple-gif.typ](simple-gif.typ) demonstrates automatic IDs, reuse, and paths
 relative to the calling document.

@@ -1,6 +1,7 @@
 use crate::{
     Error, GifAttachment, MAX_ATTACHMENT_BYTES, MAX_GIF_DECODED_PIXELS, MAX_PAGES,
     MAX_TOTAL_ATTACHMENT_BYTES, Overlay, PageInfo, Rect, gif::validate_gif_with_budget,
+    poster_filter::PosterFilter,
 };
 use lopdf::{Dictionary, Document, LoadOptions, Object, ObjectId, Stream};
 use std::collections::{BTreeMap, BTreeSet};
@@ -25,7 +26,12 @@ impl Diagnostics {
     }
 }
 
-pub(crate) type Parsed = (Vec<PageInfo>, BTreeMap<String, GifAttachment>, Vec<String>);
+pub(crate) type Parsed = (
+    Vec<PageInfo>,
+    BTreeMap<String, GifAttachment>,
+    Vec<String>,
+    Option<PosterFilter>,
+);
 
 pub(crate) fn parse(bytes: &[u8]) -> Result<Parsed, Error> {
     let doc = Document::load_mem_with_options(
@@ -86,22 +92,26 @@ pub(crate) fn parse(bytes: &[u8]) -> Result<Parsed, Error> {
         }
         pages.push(page);
     }
-    Ok((pages, attachments, diagnostics.0))
+    let poster_filter = PosterFilter::prepare(doc, &mut pages, &attachments, &mut diagnostics.0);
+    Ok((pages, attachments, diagnostics.0, poster_filter))
 }
 
-fn resolved<'a>(doc: &'a Document, object: &'a Object) -> Result<&'a Object, Error> {
+pub(crate) fn resolved<'a>(doc: &'a Document, object: &'a Object) -> Result<&'a Object, Error> {
     doc.dereference(object)
         .map(|(_, value)| value)
         .map_err(|error| Error::new(format!("Invalid PDF object reference: {error}")))
 }
 
-fn dictionary<'a>(doc: &'a Document, object: &'a Object) -> Result<&'a Dictionary, Error> {
+pub(crate) fn dictionary<'a>(
+    doc: &'a Document,
+    object: &'a Object,
+) -> Result<&'a Dictionary, Error> {
     resolved(doc, object)?
         .as_dict()
         .map_err(|_| Error::new("Expected a PDF dictionary"))
 }
 
-fn inherited<'a>(
+pub(crate) fn inherited<'a>(
     doc: &'a Document,
     mut id: ObjectId,
     key: &[u8],

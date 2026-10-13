@@ -7,6 +7,12 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
+    groups:
+      wasm-bindings:
+        patterns:
+          - wasm-bindgen*
+          - js-sys
+          - web-sys
 
   - package-ecosystem: github-actions
     directory: /

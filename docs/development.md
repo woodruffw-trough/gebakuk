@@ -221,6 +221,8 @@ them. The distribution is rebuilt and validated on every run.
 
 [Dependabot](../.github/dependabot.yml) checks Cargo and GitHub Actions weekly,
 with a seven-day cooldown for version updates in both ecosystems.
+The WASM binding crates update together because their releases require matching
+versions.
 
 To use another static host, upload `dist/` unchanged and serve `.wasm` as
 `application/wasm`.

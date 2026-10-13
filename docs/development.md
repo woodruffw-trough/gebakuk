@@ -65,11 +65,15 @@ Canvas sizing accounts for device pixel ratio and resource limits: the browser
 caps DPR at 2, each destination at 4 million pixels, and each side at 4,096 pixels.
 Animation rectangles are normalized within the same region, so overlays follow
 the fitted canvas during resizing. A least-recently-used cache holds at most six
-uploaded canvases and 64 MiB of pixel data. A cache hit reuses the canvas without
-copying RGBA pixels through `ImageData` again. The next-slide preview uses the
-resolution required by the current-slide viewport, so its canvas can become the
-current slide directly for opaque GIFs. Transparent slides keep separate static
-preview and animated canvases; neighboring animated canvases are prefetched.
+off-DOM source canvases and 64 MiB of pixel data. Each panel has its own visible
+canvas, separate from that cache budget and subject to the same raster limits.
+A cache hit copies pixels into the visible canvas through native `drawImage`,
+without another `ImageData` upload. The canvas and its backing store survive
+navigation and resizing when their pixel dimensions stay unchanged. The next
+preview uses the current-slide resolution, allowing opaque slides to reuse the
+same cached pixels without moving a canvas between panels. Transparent slides
+keep separate static preview and animated sources; neighboring animated sources
+are prefetched.
 
 Transparent GIFs need the PDF's first-frame image removed before playback. The
 core matches its direct image draw to the animation marker, then builds a
@@ -79,13 +83,22 @@ animation failures invalidate it. The original renderer provides static previews
 and restores a failed animation's poster. Unsupported or ambiguous matches stay
 static. See the [GIF convention](gif-protocol.md) for supported placements.
 
-Navigation sends the audience state immediately and displays the current slide
-first. Missing notes, the next preview, and neighboring slide/notes canvases are
-prepared one task at a time after a paint opportunity. Each task yields through
-`requestAnimationFrame` followed by a timer; navigation, document replacement,
-layout changes, and resizing cancel obsolete work. An unchanged synchronization
-message updates elapsed time and connection state without redrawing the slide or
-restarting GIFs. Resize and fullscreen redraws are debounced by 120 ms.
+Each panel keeps its previous raster and GIFs visible while a replacement is
+prepared. Native GIF first frames are decoded before the new raster and images
+are committed together. At most one replacement is pending per panel; it can
+retain a cached source canvas while decoding. Document, page, layout, and generation
+checks prevent obsolete completions from changing the display. Cancellation
+clears staged image sources. Blob URLs are shared by document and attachment
+across visible and pending images, then revoked when no target needs them.
+
+Navigation sends the audience state immediately and prepares the current slide
+first. Missing notes, the next preview, and neighboring slide/notes sources wait
+until the current replacement is committed, then run one task at a time after a
+paint opportunity. Each task yields through `requestAnimationFrame` followed by
+a timer; navigation, document replacement, layout changes, and resizing cancel
+obsolete work. An unchanged synchronization message updates elapsed time and
+connection state without redrawing the slide or restarting GIFs. Resize and
+fullscreen redraws are debounced by 120 ms.
 
 Release builds use `opt-level = 3`, fat LTO, a single codegen unit, and aborting
 panics. The WASM target enables `simd128` through `.cargo/config.toml`; a compile

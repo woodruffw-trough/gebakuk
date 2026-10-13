@@ -386,3 +386,30 @@ All action commit pins have matching full release-version comments. Dependabot
 checks Cargo and GitHub Actions weekly with a seven-day version-update cooldown.
 Application code and the public guide are unchanged; browser checks were not
 repeated for this packaging update.
+
+## Slide navigation
+
+Chromium **154.0.8037.57** reproduced blank preview frames across six PDFs,
+with gaps reaching **283.3 ms** during rapid navigation. Cold guide navigation
+also exposed blank notes frames; GIFs sometimes appeared before decoding.
+
+Persistent display canvases now retain each panel's raster and GIFs until a
+prepared replacement commits. Cache sources stay off-DOM, and GIFs decode before
+being attached. The same cold, warm, and rapid navigation checks recorded
+**zero blank, undecoded-GIF, missing-GIF, or transparent-poster frames** in both
+windows. Repeating them with 100 ms decode delays covered **936 visible frames**.
+Current and notes canvas identities remained stable; preview canvases remained
+stable between intentional end-of-presentation hints.
+
+Checks with 250 ms pending decodes covered document replacement, stale rejection
+with a reused attachment name, unchanged synchronization, layout changes, and
+resizing. Replacement GIF bytes matched the guide in both windows. Corrupting
+one live GIF restored its static poster by the first sampled error frame, with
+no holes or interruption of the other GIF across 31 foreground frames.
+Replacing the PDF with a static deck released all animation URLs and overlays
+in both windows. The 12-second transparent-GIF pixel suite also passed, covering
+background/previous disposal, local palettes, notes cropping, and independent
+fallback. No page errors occurred.
+
+All **45 native Rust tests**, formatting, native/WASM Clippy, and the optimized
+SIMD128 build pass. Safari and Firefox were not exercised for this update.

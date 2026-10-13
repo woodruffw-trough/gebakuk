@@ -20,8 +20,9 @@ use wasm_bindgen::{Clamped, JsCast};
 use wasm_bindgen_futures::{JsFuture, spawn_local};
 use web_sys::{
     AbortController, Document, DragEvent, Element, Event, File, HtmlCanvasElement, HtmlElement,
-    HtmlInputElement, HtmlSelectElement, KeyboardEvent, MessageEvent, ReadableStreamDefaultReader,
-    ReferrerPolicy, Request, RequestCredentials, RequestInit, RequestMode, Response, Window,
+    HtmlImageElement, HtmlInputElement, HtmlSelectElement, KeyboardEvent, MessageEvent,
+    ReadableStreamDefaultReader, ReferrerPolicy, Request, RequestCredentials, RequestInit,
+    RequestMode, Response, Window,
 };
 
 const PROTOCOL: &str = "rust-pdf-presenter/v1";
@@ -63,10 +64,49 @@ enum DeferredRender {
     Prefetch { page: usize, view: View },
 }
 
-struct GifListener {
-    image: Element,
+struct GifImage {
+    image: HtmlImageElement,
     attachment_id: String,
-    callback: Closure<dyn FnMut(Event)>,
+    callback: Option<Closure<dyn FnMut(Event)>>,
+}
+
+impl Drop for GifImage {
+    fn drop(&mut self) {
+        if let Some(callback) = &self.callback {
+            let _ = self
+                .image
+                .remove_event_listener_with_callback("error", callback.as_ref().unchecked_ref());
+        }
+        self.image.remove();
+        // Abort an in-progress native decoder before its pending stage is released.
+        let _ = self.image.remove_attribute("src");
+    }
+}
+
+fn release_gifs(gifs: Vec<GifImage>) {
+    drop(gifs);
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct RenderTicket {
+    generation: u32,
+    document_id: u32,
+    page: usize,
+    layout: Layout,
+}
+
+struct PendingTarget {
+    ticket: RenderTicket,
+    size: TargetSize,
+    source: HtmlCanvasElement,
+    gifs: Vec<GifImage>,
+}
+
+struct LiveTarget {
+    ticket: RenderTicket,
+    surface: HtmlElement,
+    canvas: HtmlCanvasElement,
+    gifs: Vec<GifImage>,
 }
 
 struct App {
@@ -92,8 +132,9 @@ struct App {
     deferred_scheduled: bool,
     render_generation: u32,
     rendered_state: Option<(u32, usize, Layout)>,
-    gif_urls: HashMap<String, String>,
-    gif_listeners: Vec<GifListener>,
+    gif_urls: HashMap<(u32, String), String>,
+    pending_targets: HashMap<&'static str, PendingTarget>,
+    live_targets: HashMap<&'static str, LiveTarget>,
     failed_gifs: HashSet<String>,
     resize_generation: u32,
     drag_depth: u32,
@@ -154,7 +195,8 @@ pub fn start() -> Result<(), JsValue> {
         render_generation: 0,
         rendered_state: None,
         gif_urls: HashMap::new(),
-        gif_listeners: Vec::new(),
+        pending_targets: HashMap::new(),
+        live_targets: HashMap::new(),
         failed_gifs: HashSet::new(),
         resize_generation: 0,
         drag_depth: 0,
@@ -811,7 +853,6 @@ impl App {
         }
         match Presentation::load(bytes.clone()) {
             Ok(presentation) => {
-                self.clear_gifs();
                 self.failed_gifs.clear();
                 self.cache.clear();
                 self.invalidate_render();
@@ -862,14 +903,14 @@ impl App {
 
     fn render(&mut self) {
         self.invalidate_render();
-        self.clear_gifs();
         if self.presentation.is_none() {
             return;
         }
         self.update_controls();
-        match self.render_target("current-slide", self.page, View::Audience, true, None) {
-            Ok(()) => self.rendered_state = Some((self.document_id, self.page, self.layout)),
-            Err(error) => self.render_error("current-slide", error),
+        if let Err(error) =
+            self.render_target("current-slide", self.page, View::Audience, true, None)
+        {
+            self.render_error("current-slide", error);
         }
         if !self.audience_role {
             if matches!(self.layout, Layout::NotesRight) {
@@ -883,11 +924,11 @@ impl App {
                         self.render_error("notes-slide", error);
                     }
                 } else {
-                    self.clear_view("notes-slide");
                     self.deferred.push_back(DeferredRender::Notes(self.page));
                 }
-            } else if let Some(notes) = self.dom.get_element_by_id("notes-slide") {
-                notes.set_inner_html(
+            } else {
+                self.show_hint(
+                    "notes-slide",
                     "<p class=\"empty-hint\">Choose “Notes on right” for double-width PDFs.</p>",
                 );
             }
@@ -897,11 +938,13 @@ impl App {
                     .as_ref()
                     .map_or(0, Presentation::page_count)
             {
-                self.clear_view("next-slide");
                 self.deferred
                     .push_back(DeferredRender::Preview(self.page + 1));
-            } else if let Some(next) = self.dom.get_element_by_id("next-slide") {
-                next.set_inner_html("<p class=\"empty-hint\">End of presentation</p>");
+            } else {
+                self.show_hint(
+                    "next-slide",
+                    "<p class=\"empty-hint\">End of presentation</p>",
+                );
             }
         }
         let count = self
@@ -949,18 +992,30 @@ impl App {
         self.render_generation = self.render_generation.wrapping_add(1);
         self.rendered_state = None;
         self.deferred.clear();
+        for (_, target) in self.pending_targets.drain() {
+            release_gifs(target.gifs);
+        }
+        self.prune_gif_urls();
     }
 
-    fn clear_view(&self, id: &str) {
-        if let Some(host) = self.dom.get_element_by_id(id) {
-            host.set_inner_html("");
+    fn show_hint(&mut self, id: &'static str, html: &str) {
+        if let Some(target) = self.pending_targets.remove(id) {
+            release_gifs(target.gifs);
         }
+        if let Some(target) = self.live_targets.remove(id) {
+            release_gifs(target.gifs);
+        }
+        if let Some(host) = self.dom.get_element_by_id(id) {
+            host.set_inner_html(html);
+        }
+        self.prune_gif_urls();
     }
 
-    fn render_error(&self, id: &str, error: String) {
-        if let Some(host) = self.dom.get_element_by_id(id) {
-            host.set_inner_html("<p class=\"empty-hint\">This page could not be rendered.</p>");
-        }
+    fn render_error(&mut self, id: &'static str, error: String) {
+        self.show_hint(
+            id,
+            "<p class=\"empty-hint\">This page could not be rendered.</p>",
+        );
         let error = format!("Unable to render this page: {error}");
         self.status(&error, true);
         if self.audience_role {
@@ -971,19 +1026,23 @@ impl App {
     }
 
     fn schedule_deferred(&mut self) {
-        if self.deferred_scheduled || self.deferred.is_empty() {
+        if self.deferred_scheduled
+            || self.deferred.is_empty()
+            || self.pending_targets.contains_key("current-slide")
+        {
             return;
         }
         self.deferred_scheduled = true;
+        let generation = self.render_generation;
         // A RAF callback runs before paint. Yield once more so rasterizing a
         // preview or neighbor cannot delay painting the selected slide.
         let callback = Closure::once_into_js(move |_timestamp: f64| {
             with_app(|state| {
-                let generation = state.render_generation;
                 let callback = Closure::once_into_js(move || {
                     with_app(|state| {
                         state.deferred_scheduled = false;
                         if state.render_generation == generation
+                            && !state.pending_targets.contains_key("current-slide")
                             && let Some(task) = state.deferred.pop_front()
                         {
                             state.run_deferred(task);
@@ -1175,35 +1234,21 @@ impl App {
 
     fn render_target(
         &mut self,
-        id: &str,
+        id: &'static str,
         page: usize,
         view: View,
         animated: bool,
         render_key: Option<RasterKey>,
     ) -> Result<(), String> {
         let size = self.target_size(id, page, view, animated)?;
-        let canvas = self.cached_canvas(render_key.unwrap_or(size.key))?;
-        let host = self
-            .dom
-            .get_element_by_id(id)
-            .ok_or("Missing slide viewport")?;
-        host.set_inner_html("");
-        let surface = self
-            .dom
-            .create_element("div")
-            .map_err(js_error)?
-            .dyn_into::<HtmlElement>()
-            .map_err(|_| "Invalid surface")?;
-        surface.set_class_name("slide-surface");
-        surface
-            .style()
-            .set_property("width", &format!("{}px", size.css_width))
-            .map_err(js_error)?;
-        surface
-            .style()
-            .set_property("height", &format!("{}px", size.css_height))
-            .map_err(js_error)?;
-        surface.append_child(&canvas).map_err(js_error)?;
+        let source = self.cached_canvas(render_key.unwrap_or(size.key))?;
+        let ticket = RenderTicket {
+            generation: self.render_generation,
+            document_id: self.document_id,
+            page,
+            layout: self.layout,
+        };
+        let mut gifs = Vec::new();
         if animated {
             let pdf = self.presentation.as_ref().ok_or("No PDF")?;
             for overlay in pdf.animations(page, self.layout, view) {
@@ -1213,7 +1258,8 @@ impl App {
                 let Some(gif) = pdf.attachment(&overlay.attachment_id) else {
                     continue;
                 };
-                let url = if let Some(url) = self.gif_urls.get(&overlay.attachment_id) {
+                let pool_key = (self.document_id, overlay.attachment_id.clone());
+                let url = if let Some(url) = self.gif_urls.get(&pool_key) {
                     url.clone()
                 } else {
                     let bytes = Uint8Array::from(gif.bytes.as_slice());
@@ -1225,30 +1271,17 @@ impl App {
                         web_sys::Blob::new_with_u8_array_sequence_and_options(&parts, &options)
                             .map_err(js_error)?;
                     let url = web_sys::Url::create_object_url_with_blob(&blob).map_err(js_error)?;
-                    self.gif_urls
-                        .insert(overlay.attachment_id.clone(), url.clone());
+                    self.gif_urls.insert(pool_key, url.clone());
                     url
                 };
-                let image = self.dom.create_element("img").map_err(js_error)?;
+                let image = self
+                    .dom
+                    .create_element("img")
+                    .map_err(js_error)?
+                    .dyn_into::<HtmlImageElement>()
+                    .map_err(|_| "Invalid animation image")?;
                 image.set_class_name("gif-overlay");
-                let attachment_id = overlay.attachment_id.clone();
-                let error_url = url.clone();
-                let error_id = attachment_id.clone();
-                let callback = Closure::wrap(Box::new(move |_event: Event| {
-                    with_app(|state| state.gif_failed(&error_id, &error_url));
-                }) as Box<dyn FnMut(Event)>);
-                image
-                    .add_event_listener_with_callback("error", callback.as_ref().unchecked_ref())
-                    .map_err(js_error)?;
-                self.gif_listeners.push(GifListener {
-                    image: image.clone(),
-                    attachment_id,
-                    callback,
-                });
-                image.set_attribute("src", &url).map_err(js_error)?;
-                image
-                    .set_attribute("alt", "Animated slide illustration")
-                    .map_err(js_error)?;
+                image.set_alt("Animated slide illustration");
                 let rect = overlay.rect;
                 image
                     .set_attribute(
@@ -1258,65 +1291,257 @@ impl App {
                             rect.x * 100.0,
                             rect.y * 100.0,
                             rect.width * 100.0,
-                            rect.height * 100.0
+                            rect.height * 100.0,
                         ),
                     )
                     .map_err(js_error)?;
-                surface.append_child(&image).map_err(js_error)?;
+                image.set_src(&url);
+                gifs.push(GifImage {
+                    image,
+                    attachment_id: overlay.attachment_id,
+                    callback: None,
+                });
             }
         }
-        host.append_child(&surface).map_err(js_error)?;
+        // Start every decoder now and attach rejection handlers immediately.
+        // Canceled stages clear their image sources; their completions cannot commit.
+        let decoders: Vec<_> = gifs
+            .iter()
+            .map(|gif| {
+                (
+                    gif.attachment_id.clone(),
+                    JsFuture::from(gif.image.decode()),
+                )
+            })
+            .collect();
+        if let Some(previous) = self.pending_targets.insert(
+            id,
+            PendingTarget {
+                ticket,
+                size,
+                source,
+                gifs,
+            },
+        ) {
+            release_gifs(previous.gifs);
+        }
+        if decoders.is_empty() {
+            return self.commit_target(id, ticket);
+        }
+        spawn_local(async move {
+            let mut failed = Vec::new();
+            for (attachment_id, decoder) in decoders {
+                if decoder.await.is_err() {
+                    failed.push(attachment_id);
+                }
+            }
+            with_app(|state| {
+                if !state.pending_matches(id, ticket) {
+                    return;
+                }
+                if !failed.is_empty() {
+                    state.fail_animations(ticket.document_id, &failed);
+                } else if let Err(error) = state.commit_target(id, ticket) {
+                    state.render_error(id, error);
+                    state.schedule_deferred();
+                }
+            });
+        });
         Ok(())
     }
 
-    fn clear_gifs(&mut self) {
-        // Detach before dropping callbacks, including callbacks that have fired.
-        for listener in self.gif_listeners.drain(..) {
-            let _ = listener.image.remove_event_listener_with_callback(
-                "error",
-                listener.callback.as_ref().unchecked_ref(),
-            );
-            listener.image.remove();
-        }
-        for (_, url) in self.gif_urls.drain() {
-            let _ = web_sys::Url::revoke_object_url(&url);
-        }
+    fn pending_matches(&self, id: &str, ticket: RenderTicket) -> bool {
+        ticket.generation == self.render_generation
+            && ticket.document_id == self.document_id
+            && ticket.layout == self.layout
+            && self
+                .pending_targets
+                .get(id)
+                .is_some_and(|target| target.ticket == ticket)
     }
 
-    fn gif_failed(&mut self, attachment_id: &str, url: &str) {
-        // Ignore a queued error from an earlier render. Keep callback storage
-        // until the next redraw so this function cannot drop its own closure.
-        if self
-            .gif_urls
-            .get(attachment_id)
-            .is_none_or(|active| active != url)
+    fn commit_target(&mut self, id: &'static str, ticket: RenderTicket) -> Result<(), String> {
+        if !self.pending_matches(id, ticket) {
+            return Ok(());
+        }
+        let host = self
+            .dom
+            .get_element_by_id(id)
+            .ok_or("Missing slide viewport")?;
+        let pending = self
+            .pending_targets
+            .remove(id)
+            .ok_or("Missing prepared slide")?;
+        let PendingTarget {
+            source,
+            size,
+            mut gifs,
+            ..
+        } = pending;
+        // Only live images need event callbacks. Staging decode failures are
+        // handled by their futures, never by a callback whose storage is dropped.
+        for gif in &mut gifs {
+            let error_id = gif.attachment_id.clone();
+            let error_url = gif.image.src();
+            let callback = Closure::wrap(Box::new(move |_event: Event| {
+                with_app(|state| state.gif_failed(ticket.document_id, &error_id, &error_url));
+            }) as Box<dyn FnMut(Event)>);
+            gif.image
+                .add_event_listener_with_callback("error", callback.as_ref().unchecked_ref())
+                .map_err(js_error)?;
+            gif.callback = Some(callback);
+        }
+        if !self.live_targets.contains_key(id) {
+            let surface = self
+                .dom
+                .create_element("div")
+                .map_err(js_error)?
+                .dyn_into::<HtmlElement>()
+                .map_err(|_| "Invalid slide surface")?;
+            surface.set_class_name("slide-surface");
+            let canvas = self
+                .dom
+                .create_element("canvas")
+                .map_err(js_error)?
+                .dyn_into::<HtmlCanvasElement>()
+                .map_err(|_| "Invalid display canvas")?;
+            surface.append_child(&canvas).map_err(js_error)?;
+            self.live_targets.insert(
+                id,
+                LiveTarget {
+                    ticket,
+                    surface,
+                    canvas,
+                    gifs: Vec::new(),
+                },
+            );
+        }
+        let live = self
+            .live_targets
+            .get_mut(id)
+            .ok_or("Missing display canvas")?;
+        let context = live
+            .canvas
+            .get_context("2d")
+            .map_err(js_error)?
+            .ok_or("Canvas is unavailable")?
+            .dyn_into::<web_sys::CanvasRenderingContext2d>()
+            .map_err(|_| "Invalid canvas context")?;
+        // Same-size navigation keeps the canvas and its backing store intact.
+        // The immutable cache source is never moved out of another visible panel.
+        if live.canvas.width() != source.width() {
+            live.canvas.set_width(source.width());
+        }
+        if live.canvas.height() != source.height() {
+            live.canvas.set_height(source.height());
+        }
+        live.canvas
+            .set_attribute("aria-label", &format!("Slide {}", ticket.page + 1))
+            .map_err(js_error)?;
+        live.surface
+            .style()
+            .set_property("width", &format!("{}px", size.css_width))
+            .map_err(js_error)?;
+        live.surface
+            .style()
+            .set_property("height", &format!("{}px", size.css_height))
+            .map_err(js_error)?;
+        context
+            .draw_image_with_html_canvas_element(&source, 0.0, 0.0)
+            .map_err(js_error)?;
+        release_gifs(std::mem::replace(&mut live.gifs, gifs));
+        live.ticket = ticket;
+        for gif in &live.gifs {
+            live.surface.append_child(&gif.image).map_err(js_error)?;
+        }
+        if live.surface.parent_node().is_none() {
+            if let Some(previous) = host.first_child() {
+                host.replace_child(&live.surface, &previous)
+                    .map_err(js_error)?;
+            } else {
+                host.append_child(&live.surface).map_err(js_error)?;
+            }
+        }
+        if id == "current-slide" {
+            self.rendered_state = Some((ticket.document_id, ticket.page, ticket.layout));
+        }
+        self.prune_gif_urls();
+        self.schedule_deferred();
+        Ok(())
+    }
+
+    fn prune_gif_urls(&mut self) {
+        let mut used = HashSet::new();
+        for target in self.live_targets.values() {
+            for gif in &target.gifs {
+                used.insert((target.ticket.document_id, gif.attachment_id.clone()));
+            }
+        }
+        for target in self.pending_targets.values() {
+            for gif in &target.gifs {
+                used.insert((target.ticket.document_id, gif.attachment_id.clone()));
+            }
+        }
+        self.gif_urls.retain(|key, url| {
+            if used.contains(key) {
+                true
+            } else {
+                let _ = web_sys::Url::revoke_object_url(url);
+                false
+            }
+        });
+    }
+
+    fn clear_gifs(&mut self) {
+        for (_, target) in self.pending_targets.drain() {
+            release_gifs(target.gifs);
+        }
+        for (_, target) in self.live_targets.drain() {
+            release_gifs(target.gifs);
+        }
+        self.prune_gif_urls();
+    }
+
+    fn gif_failed(&mut self, document_id: u32, attachment_id: &str, url: &str) {
+        let key = (document_id, attachment_id.to_owned());
+        // A canceled decoder or an old visible document cannot disable an
+        // animation in its replacement, even when the attachment names match.
+        if document_id != self.document_id
+            || self.gif_urls.get(&key).is_none_or(|active| active != url)
         {
             return;
         }
-        self.failed_gifs.insert(attachment_id.to_owned());
+        self.fail_animations(document_id, &[attachment_id.to_owned()]);
+    }
+
+    fn fail_animations(&mut self, document_id: u32, attachments: &[String]) {
+        if document_id != self.document_id {
+            return;
+        }
+        self.failed_gifs.extend(attachments.iter().cloned());
         if let Some(pdf) = self.presentation.as_mut() {
-            pdf.disable_animation(attachment_id);
+            for attachment_id in attachments {
+                pdf.disable_animation(attachment_id);
+            }
         }
         self.cache.clear();
         self.invalidate_render();
         let generation = self.render_generation;
-        // Run after the error callback returns: render() detaches and drops GIF
-        // listeners, including the closure handling this event.
+        // Repair after the error callback returns. Unaffected live animations
+        // stay attached while the failed image's PDF poster is restored beneath it.
         spawn_local(async move {
             with_app(|state| {
                 if state.render_generation == generation {
+                    if let Err(error) = state.restore_failed_gifs() {
+                        state.status(
+                            &format!("Unable to restore animation poster: {error}"),
+                            true,
+                        );
+                    }
                     state.render();
                 }
             });
         });
-        for listener in &self.gif_listeners {
-            if listener.attachment_id == attachment_id {
-                listener.image.remove();
-            }
-        }
-        if let Some(url) = self.gif_urls.remove(attachment_id) {
-            let _ = web_sys::Url::revoke_object_url(&url);
-        }
         let error = "An animation could not be decoded. Its static PDF image is shown instead.";
         self.status(error, true);
         if self.audience_role {
@@ -1324,6 +1549,72 @@ impl App {
             set(&message, "message", &JsValue::from_str(error));
             self.send_opener(&message);
         }
+    }
+
+    fn restore_failed_gifs(&mut self) -> Result<(), String> {
+        let mut targets = Vec::new();
+        for (&id, target) in &self.live_targets {
+            if target.ticket.document_id != self.document_id
+                || !target
+                    .gifs
+                    .iter()
+                    .any(|gif| self.failed_gifs.contains(&gif.attachment_id))
+            {
+                continue;
+            }
+            let view = if id == "notes-slide" {
+                View::Notes
+            } else {
+                View::Audience
+            };
+            let pdf = self.presentation.as_ref().ok_or("No PDF")?;
+            let animated = pdf
+                .animations(target.ticket.page, target.ticket.layout, view)
+                .iter()
+                .any(|overlay| {
+                    pdf.attachment(&overlay.attachment_id)
+                        .is_some_and(|gif| gif.has_transparency)
+                });
+            targets.push((
+                id,
+                view,
+                RasterKey {
+                    page: target.ticket.page,
+                    notes: matches!(view, View::Notes),
+                    notes_right: matches!(target.ticket.layout, Layout::NotesRight),
+                    animated,
+                    width: target.canvas.width(),
+                    height: target.canvas.height(),
+                },
+            ));
+        }
+        for (id, view, key) in targets {
+            let source = self.cached_canvas(key)?;
+            let target = self.live_targets.get_mut(id).ok_or("Missing live slide")?;
+            let allowed: HashSet<_> = self
+                .presentation
+                .as_ref()
+                .ok_or("No PDF")?
+                .animations(target.ticket.page, target.ticket.layout, view)
+                .into_iter()
+                .map(|overlay| overlay.attachment_id)
+                .collect();
+            let context = target
+                .canvas
+                .get_context("2d")
+                .map_err(js_error)?
+                .ok_or("Canvas is unavailable")?
+                .dyn_into::<web_sys::CanvasRenderingContext2d>()
+                .map_err(|_| "Invalid canvas context")?;
+            context
+                .draw_image_with_html_canvas_element(&source, 0.0, 0.0)
+                .map_err(js_error)?;
+            target
+                .gifs
+                .retain(|gif| allowed.contains(&gif.attachment_id));
+        }
+        self.prune_gif_urls();
+        Ok(())
     }
 
     fn update_controls(&self) {
@@ -1649,7 +1940,6 @@ impl App {
             }
             "reset" => {
                 self.invalidate_render();
-                self.clear_gifs();
                 self.failed_gifs.clear();
                 self.cache.clear();
                 self.presentation = None;
@@ -1688,7 +1978,16 @@ impl App {
         }
         self.connected = true;
         self.status("", false);
-        if self.rendered_state != Some((self.document_id, self.page, self.layout)) {
+        let pending = self
+            .pending_targets
+            .get("current-slide")
+            .is_some_and(|target| {
+                target.ticket.document_id == self.document_id
+                    && target.ticket.page == self.page
+                    && target.ticket.layout == self.layout
+                    && target.ticket.generation == self.render_generation
+            });
+        if self.rendered_state != Some((self.document_id, self.page, self.layout)) && !pending {
             self.render();
         } else {
             self.update_controls();

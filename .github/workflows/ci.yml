@@ -98,7 +98,7 @@ jobs:
       # PRs restore default-branch caches; only successful main builds populate them.
       - name: Save pinned WASM tools
         if: success() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && steps.tools-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/bin/wasm-bindgen
@@ -106,7 +106,7 @@ jobs:
           key: ${{ steps.tools-cache.outputs.cache-primary-key }}
       - name: Save Cargo dependencies and build outputs
         if: success() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && steps.cargo-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry/index

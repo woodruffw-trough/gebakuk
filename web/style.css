@@ -77,3 +77,14 @@ kbd { font-family: inherit; font-size: 10px; background: #242c36; color: #c2ccd7
 @media (max-width: 540px) { .presenter-shell { padding: 14px; } .toolbar label { flex-wrap: wrap; } .presenter-grid { grid-template-columns: 1fr; } .viewer-panel:has(#current-slide) { grid-column: auto; } .controls, .navigation { gap: 8px; } button, select { padding: 9px 11px; font-size: 12px; } #elapsed { margin-left: 0; } .timer { margin-left: 0; } }
 @media (max-width: 900px) { #pdf-loader { padding: 18px; gap: 10px; } #file-open-button { min-height: 72px; padding: 8px 12px; font-size: 14px; gap: 5px; } #file-open-button .empty-icon { font-size: 26px; line-height: 1; } #pdf-url-input { padding: 9px 10px; font-size: 12px; } #url-load-button { padding: 9px 11px; font-size: 12px; } #loader-close-button { bottom: 12px; right: 14px; } }
 @media (max-width: 540px) { .panel-actions { gap: 6px; } #current-panel .panel-heading { padding-right: 12px; } #current-panel .panel-heading h2 { padding-left: 12px; padding-right: 8px; } #slide-count { font-size: 12px; padding: 0; } }
+
+.presenter-shell[data-notes-focused] .presenter-grid { grid-template-columns: minmax(0, 2.4fr) minmax(0, 1fr); grid-template-areas: "notes current" "notes next"; }
+.presenter-shell[data-notes-focused] .notes-panel { grid-area: notes; }
+.presenter-shell[data-notes-focused] .viewer-panel:has(#current-slide) { grid-area: current; }
+.presenter-shell[data-notes-focused] .viewer-panel:has(#next-slide) { grid-area: next; }
+.presenter-shell[data-notes-focused] #current-slide, .presenter-shell[data-notes-focused] #next-slide { min-height: 0; }
+.presenter-shell[data-notes-focused] .current-panel .panel-heading { flex-wrap: wrap; gap: 8px; padding: 12px 14px; }
+.presenter-shell[data-notes-focused] .current-panel .panel-heading h2 { padding: 0; }
+.presenter-shell[data-notes-focused] .current-panel .panel-actions { flex-wrap: wrap; gap: 8px; }
+@media (max-width: 900px) { .presenter-shell[data-notes-focused] .presenter-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "notes notes" "current next"; } }
+@media (max-width: 540px) { .presenter-shell[data-notes-focused] .presenter-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "notes" "current" "next"; } }

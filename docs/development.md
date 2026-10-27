@@ -39,6 +39,11 @@ cargo clippy --locked -p presenter-web --target wasm32-unknown-unknown -- -D war
 cargo xtask build
 ```
 
+CI also runs [`scripts/check-browser.py`](../scripts/check-browser.py) against
+`dist/` using Google Chrome and Python Playwright. To run it locally, install the
+Playwright version pinned in the workflow and make Chrome available on `PATH`,
+then run `python3 scripts/check-browser.py` after building.
+
 There is no Node.js, JavaScript package manager, bundler, framework, native PDF
 renderer, or backend. Application logic is Rust; the handwritten JavaScript only
 initializes the generated WASM module.
@@ -180,6 +185,12 @@ WASM module with an audience URL role. The presenter owns the PDF, layout, and
 slide state. The audience announces readiness and receives PDF bytes once per
 document load; later navigation messages send state rather than the full PDF.
 Both windows render locally.
+
+For notes-right PDFs, opening the audience window makes notes the main presenter
+panel, with smaller current and next-slide previews. Closing the audience restores
+the usual layout. The PDF opener temporarily restores the larger Current slide
+panel so its controls remain usable. Presenter fullscreen keeps notes and previews
+visible while the notes are enlarged.
 
 Audience windows never fetch a startup `source`, including when opened directly
 with `role=audience`. Generated audience URLs remove the query `source`; the

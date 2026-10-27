@@ -35,7 +35,8 @@ def settled(page, slide=1, notes=False, gifs=None):
               const images = [...document.querySelectorAll('.gif-overlay')];
               return canvas?.getAttribute('aria-label') === label
                 && (!args.notes || note?.getAttribute('aria-label') === label)
-                && (args.gifs === null || images.length === args.gifs)
+                // Playwright omits dictionary entries whose Python value is None.
+                && (args.gifs == null || images.length === args.gifs)
                 && images.every(image => image.complete && image.naturalWidth > 0);
             }""",
             arg={"slide": slide, "notes": notes, "gifs": gifs},

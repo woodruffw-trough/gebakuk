@@ -13,7 +13,7 @@ are processed locally and are never uploaded.
 1. Open a PDF in **Current slide**: click to choose a file, drop one, or paste a
    URL. PDF URLs on other sites require CORS permission.
 2. Choose **Open audience**, move that window to your display, and enter
-   fullscreen.
+   fullscreen. Speaker notes enlarge in the presenter window.
 3. Navigate with **←**, **→**, or **Space**. **Change PDF** opens another deck.
 
 **Auto** detects slides with notes on the right; use **Page layout** to override

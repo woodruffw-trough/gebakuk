@@ -181,6 +181,12 @@ slide state. The audience announces readiness and receives PDF bytes once per
 document load; later navigation messages send state rather than the full PDF.
 Both windows render locally.
 
+For notes-right PDFs, opening the audience window makes notes the main presenter
+panel, with smaller current and next-slide previews. Closing the audience restores
+the usual layout. The PDF opener temporarily restores the larger Current slide
+panel so its controls remain usable. Presenter fullscreen keeps notes and previews
+visible while the notes are enlarged.
+
 Audience windows never fetch a startup `source`, including when opened directly
 with `role=audience`. Generated audience URLs remove the query `source`; the
 audience receives document bytes through the window protocol instead.

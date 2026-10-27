@@ -271,14 +271,21 @@ fn attach_events(state: &Rc<RefCell<App>>) -> Result<(), JsValue> {
             open_file_picker();
         })?;
         state.listen_element("open-document-button", "click", |_| {
-            with_app(|state| state.set_loader_open(true));
+            with_app(|state| {
+                if state.set_loader_open(true) {
+                    state.render();
+                }
+            });
             focus_element("file-open-button");
         })?;
         state.listen_element("loader-close-button", "click", |_| {
             with_app(|state| {
                 state.begin_load();
-                state.set_loader_open(false);
+                let layout_changed = state.set_loader_open(false);
                 state.document_status();
+                if layout_changed {
+                    state.render();
+                }
             });
             focus_element("current-slide");
         })?;
@@ -727,9 +734,40 @@ impl App {
         }
     }
 
-    fn set_loader_open(&self, open: bool) {
+    fn notes_focused(&self) -> bool {
+        !self.audience_role
+            && self.presentation.is_some()
+            && matches!(self.layout, Layout::NotesRight)
+            && self
+                .audience
+                .as_ref()
+                .is_some_and(|window| !window.closed().unwrap_or(true))
+            && self
+                .dom
+                .get_element_by_id("pdf-loader")
+                .and_then(|element| element.dyn_into::<HtmlElement>().ok())
+                .is_some_and(|loader| loader.hidden())
+    }
+
+    fn update_notes_focus(&self) -> bool {
+        let Some(shell) = self.dom.query_selector(".presenter-shell").ok().flatten() else {
+            return false;
+        };
+        let focused = self.notes_focused();
+        if shell.has_attribute("data-notes-focused") == focused {
+            return false;
+        }
+        if focused {
+            let _ = shell.set_attribute("data-notes-focused", "true");
+        } else {
+            let _ = shell.remove_attribute("data-notes-focused");
+        }
+        true
+    }
+
+    fn set_loader_open(&self, open: bool) -> bool {
         if self.audience_role {
-            return;
+            return false;
         }
         for (id, hidden) in [
             ("pdf-loader", !open),
@@ -760,6 +798,7 @@ impl App {
                 let _ = button.remove_attribute("disabled");
             }
         }
+        self.update_notes_focus()
     }
 
     fn cancel_download(&mut self) {
@@ -902,6 +941,7 @@ impl App {
     }
 
     fn render(&mut self) {
+        self.update_notes_focus();
         self.invalidate_render();
         if self.presentation.is_none() {
             return;
@@ -1684,6 +1724,9 @@ impl App {
             self.sent_document = None;
             self.audience_instance = None;
             self.status("Audience window closed. Open it again to resume.", false);
+            if self.update_notes_focus() {
+                self.render();
+            }
         }
     }
 
@@ -1695,7 +1738,7 @@ impl App {
                 "Unable to exit fullscreen",
             )
         } else {
-            let target = if self.audience_role {
+            let target = if self.audience_role || self.notes_focused() {
                 self.dom.document_element()
             } else {
                 self.dom.get_element_by_id("current-slide")
@@ -1766,6 +1809,9 @@ impl App {
                 self.sent_document = None;
                 self.audience_instance = None;
                 self.status("Audience window opened.", false);
+                if self.update_notes_focus() {
+                    self.render();
+                }
             }
             _ => self.status(
                 "The browser blocked the audience window. Allow popups and try again.",
@@ -2044,7 +2090,7 @@ const PRESENTER_HTML: &str = r#"
         </div>
       </div>
     </section>
-    <section class="viewer-panel notes-panel"><div class="panel-heading"><h2>Speaker notes</h2><span>Presenter only</span></div><div id="notes-slide" class="slide-viewport"><p class="empty-hint">Double-width PDFs show notes here.</p></div></section>
+    <section class="viewer-panel notes-panel"><div class="panel-heading"><h2>Speaker notes</h2><span>Presenter only</span></div><div id="notes-slide" class="slide-viewport" tabindex="0"><p class="empty-hint">Double-width PDFs show notes here.</p></div></section>
     <section class="viewer-panel next-panel"><div class="panel-heading"><h2>Next slide</h2></div><div id="next-slide" class="slide-viewport"></div></section>
   </div>
   <footer class="presentation-controls"><div class="navigation"><button id="previous-button" type="button" aria-label="Previous slide">← Previous</button><button id="next-button" type="button">Next →</button><span class="keyboard-hint">← → or Space</span></div><div class="timer"><span>Elapsed</span><output id="elapsed">00:00:00</output><button id="reset-timer-button" type="button" aria-label="Reset elapsed timer">Reset</button></div><button id="fullscreen-button" type="button" disabled>Fullscreen ⛶</button></footer>

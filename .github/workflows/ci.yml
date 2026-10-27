@@ -80,6 +80,11 @@ jobs:
         run: cargo xtask install-tools
       - name: Build optimized WASM distribution
         run: cargo xtask build
+      - name: Check presenter layout in Chrome
+        run: |
+          python3 -m venv "$RUNNER_TEMP/browser-check"
+          "$RUNNER_TEMP/browser-check/bin/python" -m pip install --disable-pip-version-check playwright==1.64.1
+          "$RUNNER_TEMP/browser-check/bin/python" scripts/check-browser.py
       - name: Select Pages artifact name
         id: pages-artifact
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

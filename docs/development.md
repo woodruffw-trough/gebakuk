@@ -39,6 +39,11 @@ cargo clippy --locked -p presenter-web --target wasm32-unknown-unknown -- -D war
 cargo xtask build
 ```
 
+CI also runs [`scripts/check-browser.py`](../scripts/check-browser.py) against
+`dist/` using Google Chrome and Python Playwright. To run it locally, install the
+Playwright version pinned in the workflow and make Chrome available on `PATH`,
+then run `python3 scripts/check-browser.py` after building.
+
 There is no Node.js, JavaScript package manager, bundler, framework, native PDF
 renderer, or backend. Application logic is Rust; the handwritten JavaScript only
 initializes the generated WASM module.

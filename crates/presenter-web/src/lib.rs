@@ -759,6 +759,18 @@ impl App {
         }
         if focused {
             let _ = shell.set_attribute("data-notes-focused", "true");
+            // A replacement PDF can enable notes while only the old slide is fullscreen.
+            if self
+                .dom
+                .fullscreen_element()
+                .is_some_and(|element| element.id() == "current-slide")
+            {
+                self.call_fullscreen_api(
+                    JsValue::from(self.dom.clone()),
+                    "exitFullscreen",
+                    "Unable to exit fullscreen",
+                );
+            }
         } else {
             let _ = shell.remove_attribute("data-notes-focused");
         }
@@ -1750,6 +1762,10 @@ impl App {
                 "Fullscreen is unavailable",
             )
         };
+        self.call_fullscreen_api(target, method, failure);
+    }
+
+    fn call_fullscreen_api(&self, target: JsValue, method: &str, failure: &'static str) {
         // web-sys discards both fullscreen APIs' Promises. Keep them to report
         // browser rejections while binding each method to its own receiver.
         let request = Reflect::get(&target, &JsValue::from_str(method))

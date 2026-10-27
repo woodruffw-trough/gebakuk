@@ -27,7 +27,7 @@ def wait_for_state(page, expression, **kwargs):
 def settled(page, slide=1, notes=False, gifs=None):
     try:
         wait_for_state(
-        page,
+            page,
             """args => {
               const label = 'Slide ' + args.slide;
               const canvas = document.querySelector('#current-slide canvas');
@@ -185,6 +185,7 @@ def main():
             assert after["notes"]["width"] > after["current"]["width"] * 1.3, after
             assert after["notes"]["pixels"] >= after["notes"]["surfaceWidth"] - 1, after
             results["enlargement"] = {"before": before, "after": after}
+            fit_ready(page)
             page.evaluate("""window.__stableNodes =
               [...document.querySelectorAll('.slide-surface canvas,.gif-overlay')];""")
             page.wait_for_timeout(2200)

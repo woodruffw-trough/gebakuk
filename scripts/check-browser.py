@@ -124,13 +124,13 @@ def load_pdf(page, name, pages):
 
 def fullscreen(page, notes=False):
     page.locator("#fullscreen-button").click()
-    wait_for_state(page, "document.fullscreenElement !== null")
+    wait_for_state(page, "() => document.fullscreenElement !== null")
     if notes:
         assert page.evaluate(
-            "document.fullscreenElement.contains(document.querySelector('#notes-slide'))"
+            "() => document.fullscreenElement.contains(document.querySelector('#notes-slide'))"
         ), "Presenter fullscreen hid the speaker notes"
     page.locator("#fullscreen-button").click()
-    wait_for_state(page, "document.fullscreenElement === null")
+    wait_for_state(page, "() => document.fullscreenElement === null")
 
 
 def main():
@@ -170,7 +170,7 @@ def main():
             before = metrics(page)
             page.evaluate("window.__blockPopup = true")
             page.locator("#audience-button").click()
-            wait_for_state(page, "document.querySelector('#status').textContent.includes('blocked')")
+            wait_for_state(page, "() => document.querySelector('#status').textContent.includes('blocked')")
             assert not metrics(page)["focused"], "Blocked popup changed presenter layout"
             page.evaluate("window.__blockPopup = false")
             with page.expect_popup() as popup:
@@ -205,7 +205,7 @@ def main():
             fullscreen(audience)
             page.bring_to_front()
             page.locator("#layout-select").select_option("normal")
-            wait_for_state(page, "!document.querySelector('.presenter-shell[data-notes-focused]')")
+            wait_for_state(page, "() => !document.querySelector('.presenter-shell[data-notes-focused]')")
             page.locator("#layout-select").select_option("auto")
             focus_ready(page)
             page.locator("#open-document-button").click()
@@ -219,10 +219,10 @@ def main():
             settled(audience, gifs=0)
             assert not metrics(page)["focused"], "Ordinary PDF enlarged empty notes"
             page.locator("#fullscreen-button").click()
-            wait_for_state(page, "document.fullscreenElement !== null")
+            wait_for_state(page, "() => document.fullscreenElement !== null")
             page.locator("#file-input").set_input_files(ROOT / "web" / "guide.pdf")
-            wait_for_state(page, "document.querySelector('#slide-count').textContent === '1 / 8'")
-            wait_for_state(page, "document.fullscreenElement === null")
+            wait_for_state(page, "() => document.querySelector('#slide-count').textContent === '1 / 8'")
+            wait_for_state(page, "() => document.fullscreenElement === null")
             focus_ready(page)
             load_pdf(page, "notes-right.pdf", 3)
             focus_ready(page)
@@ -245,7 +245,7 @@ def main():
                 assert abs(alignment["y"] - 60 / 360) < 0.01, alignment
                 assert abs(alignment["width"] - 0.5) < 0.01, alignment
             page.locator("#file-input").set_input_files(ROOT / "web" / "guide.pdf")
-            wait_for_state(page, "document.querySelector('#slide-count').textContent === '1 / 8'")
+            wait_for_state(page, "() => document.querySelector('#slide-count').textContent === '1 / 8'")
             focus_ready(page)
             results["responsive"] = []
             for width, height in [(1440, 900), (1024, 768), (900, 760),
@@ -271,13 +271,13 @@ def main():
             settled(page, 2, notes=True)
             settled(audience, 2, gifs=0)
             audience.close()
-            wait_for_state(page, "!document.querySelector('.presenter-shell[data-notes-focused]')")
+            wait_for_state(page, "() => !document.querySelector('.presenter-shell[data-notes-focused]')")
             with page.expect_popup() as popup:
                 page.locator("#audience-button").click()
             audience = popup.value
             settled(audience, 2, gifs=0)
             page.bring_to_front()
-            wait_for_state(page, "!!document.querySelector('.presenter-shell[data-notes-focused]')")
+            wait_for_state(page, "() => !!document.querySelector('.presenter-shell[data-notes-focused]')")
             settled(page, 2, notes=True)
             assert not errors, errors
             results.update(browser=browser.version, page_errors=errors, status="passed")

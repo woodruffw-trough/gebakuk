@@ -19,20 +19,24 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 def settled(page, slide=1, notes=False, gifs=None):
-    page.wait_for_function(
-        """args => {
-          const label = 'Slide ' + args.slide;
-          const canvas = document.querySelector('#current-slide canvas');
-          const note = document.querySelector('#notes-slide canvas');
-          const images = [...document.querySelectorAll('.gif-overlay')];
-          return canvas?.getAttribute('aria-label') === label
-            && (!args.notes || note?.getAttribute('aria-label') === label)
-            && (args.gifs === null || images.length === args.gifs)
-            && images.every(image => image.complete && image.naturalWidth > 0);
-        }""",
-        arg={"slide": slide, "notes": notes, "gifs": gifs},
-    )
+    try:
+        page.wait_for_function(
+            """args => {
+              const label = 'Slide ' + args.slide;
+              const canvas = document.querySelector('#current-slide canvas');
+              const note = document.querySelector('#notes-slide canvas');
+              const images = [...document.querySelectorAll('.gif-overlay')];
+              return canvas?.getAttribute('aria-label') === label
+                && (!args.notes || note?.getAttribute('aria-label') === label)
+                && (args.gifs === null || images.length === args.gifs)
+                && images.every(image => image.complete && image.naturalWidth > 0);
+            }""",
+            arg={"slide": slide, "notes": notes, "gifs": gifs},
+        )
 
+    except Exception:
+        print(json.dumps(diagnostic(page), indent=2), flush=True)
+        raise
 
 def metrics(page):
     return page.evaluate("""() => {
@@ -50,6 +54,31 @@ def metrics(page):
       }
       return result;
     }""")
+
+
+def diagnostic(page):
+    return {
+        "url": page.url,
+        "metrics": metrics(page),
+        "dom": page.evaluate("""() => ({
+          visibility: document.visibilityState,
+          activeElement: document.activeElement?.id,
+          focused: document.querySelector('.presenter-shell')?.getAttribute('data-notes-focused'),
+          status: document.querySelector('#status')?.textContent,
+          fullscreen: document.fullscreenElement?.id,
+          targets: ['current', 'notes', 'next'].map(name => {
+            const host = document.querySelector('#' + name + '-slide');
+            const canvas = host?.querySelector('canvas');
+            return {name, label: canvas?.getAttribute('aria-label'),
+              width: canvas?.width, height: canvas?.height,
+              hint: host?.querySelector('.empty-hint')?.textContent};
+          }),
+          images: [...document.querySelectorAll('.gif-overlay')].map(image => ({
+            host: image.closest('.slide-viewport')?.id, src: image.src,
+            complete: image.complete, naturalWidth: image.naturalWidth
+          }))
+        })"""),
+    }
 
 
 def focus_ready(page):
@@ -116,7 +145,16 @@ def main():
             context.set_default_timeout(15000)
             context.add_init_script("""const nativeOpen = window.open.bind(window);
               window.open = (...args) => window.__blockPopup ? null : nativeOpen(...args);""")
-            context.on("page", lambda page: page.on("pageerror", lambda e: errors.append(str(e))))
+            def record_error(error):
+                errors.append(str(error))
+                print("PAGEERROR", str(error), flush=True)
+
+            def observe_page(observed):
+                observed.on("pageerror", record_error)
+                observed.on("console", lambda msg: print("CONSOLE", msg.text, flush=True)
+                            if msg.type == "error" else None)
+
+            context.on("page", observe_page)
             page = context.new_page()
             page.goto(f"http://127.0.0.1:{server.server_port}/?source=guide.pdf")
             settled(page, notes=True, gifs=1)

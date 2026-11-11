@@ -260,7 +260,7 @@ impl Presentation {
                 "Requested raster exceeds the 8 million pixel / 8192 pixel side limit",
             ));
         }
-        use hayro::hayro_interpret::{InterpreterSettings, util::TransformExt};
+        use hayro::hayro_interpret::{InterpreterSettings, RenderContent, util::TransformExt};
         use hayro::kurbo::Affine;
         use hayro::vello_cpu::{
             Pixmap, RasterizerSettings, RenderContext, Resources, TargetInit,
@@ -283,7 +283,7 @@ impl Presentation {
         ) * Affine::translate((-region.x, -region.y))
             * page.initial_transform(true).to_kurbo();
         let settings = InterpreterSettings {
-            render_annotations: false,
+            render_content: RenderContent::PAGE,
             ..Default::default()
         };
         hayro::render_into(

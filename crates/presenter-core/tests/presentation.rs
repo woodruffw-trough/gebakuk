@@ -752,6 +752,40 @@ fn color_at(raster: &presenter_core::Raster, x: usize, y: usize) -> [u8; 4] {
 }
 
 #[test]
+fn page_content_is_rendered_without_annotation_appearances() {
+    let bytes = color_pdf(0);
+    let baseline = Presentation::load(bytes.clone())
+        .unwrap()
+        .render(0, Layout::Normal, View::Audience, 200, 100)
+        .unwrap();
+    let mut doc = Document::load_mem(&bytes).unwrap();
+    let appearance = doc.add_object(Stream::new(
+        dictionary! {
+            "Type" => "XObject", "Subtype" => "Form",
+            "BBox" => vec![0.into(), 0.into(), 200.into(), 100.into()],
+            "Resources" => dictionary! {},
+        },
+        b"0 1 0 rg 0 0 200 100 re f".to_vec(),
+    ));
+    let annotation = doc.add_object(dictionary! {
+        "Type" => "Annot", "Subtype" => "Stamp",
+        "Rect" => vec![40.into(), 25.into(), 240.into(), 125.into()],
+        "F" => 4, "AP" => dictionary! { "N" => appearance },
+    });
+    let page = doc.page_iter().next().unwrap();
+    doc.get_dictionary_mut(page)
+        .unwrap()
+        .set("Annots", vec![Object::Reference(annotation)]);
+    let annotated = Presentation::load(write_pdf(doc))
+        .unwrap()
+        .render(0, Layout::Normal, View::Audience, 200, 100)
+        .unwrap();
+    assert_eq!(color_at(&annotated, 50, 50), [255, 0, 0, 255]);
+    assert_eq!(color_at(&annotated, 150, 50), [0, 0, 255, 255]);
+    assert_eq!(annotated.rgba, baseline.rgba);
+}
+
+#[test]
 fn region_only_rasterization_and_all_page_rotations_match_geometry() {
     let doc = Presentation::load(color_pdf(0)).unwrap();
     let audience = doc
